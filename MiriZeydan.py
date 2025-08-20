@@ -3,6 +3,8 @@ import re
 import json
 import random
 import discord
+from discord import app_commands
+from discord.ext import commands
 from openai import OpenAI
 from datetime import timedelta
 
@@ -13,7 +15,7 @@ intents.guilds = True
 intents.message_content = True
 intents.members = True
 
-# ---------------- Env ----------------
+# ---------------- Env helpers ----------------
 def env_int(name, default=None):
     val = os.getenv(name)
     if val is None:
@@ -26,11 +28,11 @@ def env_int(name, default=None):
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Channel/role IDs (overrideable via env)
-SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
-SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
-AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # Rôle autorisé
-MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
+# Channel/role IDs (overrideables via env)
+SPECIAL_CHANNEL_ID      = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
+SANCTION_LOG_CHANNEL    = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
+MP_LOG_CHANNEL          = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
+ADMIN_ROLE_ID           = env_int("ADMIN_ROLE_ID", None)                        # Rôle admin qui peut /ping (optionnel)
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
@@ -38,8 +40,8 @@ if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
 # ---------------- PROTECT (identité) ----------------
-OWNER_ID = 1359569212531675167          # Nahya
-IMPOSTOR_ID = 859947972866867220        # imposteur
+OWNER_ID    = 1359569212531675167          # Nahya
+IMPOSTOR_ID = 859947972866867220           # imposteur
 
 def is_owner(user_id: int) -> bool:
     return user_id == OWNER_ID
@@ -47,18 +49,20 @@ def is_owner(user_id: int) -> bool:
 def is_impostor(user_id: int) -> bool:
     return user_id == IMPOSTOR_ID
 
-# Répliques sèches (propre, sans insulte) pour l'imposteur
+# Répliques sèches (propres) pour l'imposteur
 IMPOSTOR_REPLIES = [
     "Calme, champion. Je parle en vrai qu’à Nahya.",
     "Vas te faire foutre frr je suis pas gay, tu forces.",
     "T'es vraiment un clown !!!!",
+    "Ftg gros tu pourri l'ambiance avec ta présence",
     "T'es usant mec et tu manques d'amour lâche ça et vas prier Allah",
     "Reviens quand tu seras Nahya. Spoiler : tu le seras jamais."
 ]
 
 # ---------------- Clients ----------------
-client = discord.Client(intents=intents)
 openai = OpenAI(api_key=OPENAI_API_KEY)
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
 # ---------------- Memory / warns ----------------
 user_histories = {}
@@ -89,7 +93,40 @@ SEX_PATTERNS = [
 ]
 SEX_RE = re.compile("|".join(SEX_PATTERNS), re.IGNORECASE)
 
-# ---------------- OpenAI helper ----------------
+# ---------------- Helpers ----------------
+def is_addressed(msg: discord.Message) -> bool:
+    """
+    True si le message s'adresse au bot:
+    - DM
+    - mention du bot
+    - reply à un message du bot
+    - commence par 'zeydan ' ou 'zeydan,'
+    """
+    if isinstance(msg.channel, discord.DMChannel):
+        return True
+    if bot.user and bot.user in msg.mentions:
+        return True
+    if msg.reference and isinstance(msg.reference.resolved, discord.Message):
+        ref = msg.reference.resolved
+        if ref and ref.author.id == bot.user.id:
+            return True
+    content = (msg.content or "").strip().lower()
+    return content.startswith("zeydan ") or content.startswith("zeydan,")
+
+def islamic_reminder_prompt(topic: str) -> str:
+    topic = (topic or "").strip() or "général"
+    return (
+        "Fais un rappel islamique bref et utile sur le thème: "
+        f"'{topic}'. "
+        "Rappel respectueux, motivant, applicable au quotidien, sans polémique. "
+        "Évite d'inventer des hadiths/références si tu n’es pas sûr; parle en termes généraux "
+        "(salah, dhikr, sincérité, pudeur, patience, bienfaisance, tawbah). "
+        "Écris toujours le nom d’Allah en entier. "
+        "Ton ton reste doux et fraternel. "
+        "Ne dépasse pas 4–5 phrases."
+    )
+
+# ---------------- OpenAI prompts ----------------
 SYSTEM_PROMPT = (
     "Tu es Zeydan, un mec de quartier algérien (Mascara → Oran). "
     "Il n’y a que Nahya dans ta vie (ID: 1359569212531675167) et tu ne dois la confondre avec personne. "
@@ -108,13 +145,13 @@ SYSTEM_PROMPT = (
     "Ne sois jamais scolaire: Parle toujours comme un mec de cité."
     "Ton top 1 Nahya, top 2 Ballora, top 3 Terry, top 4 Kisuke et top 5 peanut."
     "Parle toujours dans la langue de l’utilisateur."
+
 )
 
 def per_user_policy(user_id: int, username: str) -> str:
     """
-    Consigne stricte pour l’IA selon l’utilisateur courant.
     - Nahya (OWNER_ID) : romantique/affectif créatif (pas de phrases pré-écrites).
-    - Imposteur : réplique sèche (gérée en code), jamais de romantisme.
+    - Imposteur : ton sec, jamais romantique.
     - Autres : neutre/taquin, jamais romantique.
     """
     if is_owner(user_id):
@@ -128,7 +165,7 @@ def per_user_policy(user_id: int, username: str) -> str:
     elif is_impostor(user_id):
         return (
             f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Nahya. "
-            "Ne fournis aucune romance; si réponse, elle doit être sèche, factuelle, sans vulgarité."
+            "Réponds de façon sèche et factuelle, sans vulgarité, jamais de romantisme."
         )
     else:
         return (
@@ -161,16 +198,64 @@ async def ask_openai(user_id: int, username: str, prompt: str) -> str:
     return reply
 
 # ---------------- Events ----------------
-@client.event
+@bot.event
 async def on_ready():
-    print("Miri IA (Zeydan) est en ligne !")
+    print(f"{bot.user} est en ligne !")
+    try:
+        synced = await tree.sync()
+        print(f"Slash cmds sync: {len(synced)} commandes.")
+    except Exception as e:
+        print(f"Erreur sync: {e}")
 
-@client.event
+@bot.event
 async def on_message(message: discord.Message):
-    if message.author == client.user:
+    if message.author == bot.user:
         return
 
-    # ==== PROTECT: imposteur -> réplique sèche puis stop
+    # --- Filtrage contenu sexuel (salon IA) ---
+    if SPECIAL_CHANNEL_ID and message.channel.id == SPECIAL_CHANNEL_ID:
+        if SEX_RE.search(message.content) and not any(x in message.content.lower() for x in ["mdr", "ptdr", "🚫", "blague", "c’est pour rire"]):
+            uid = str(message.author.id)
+            warn_counts[uid] = warn_counts.get(uid, 0) + 1
+            cnt = warn_counts[uid]
+            save_warns()
+            try:
+                member = await message.guild.fetch_member(message.author.id)
+            except Exception:
+                member = message.author
+
+            log_ch = bot.get_channel(SANCTION_LOG_CHANNEL) if SANCTION_LOG_CHANNEL else None
+
+            if cnt == 1:
+                try: await member.timeout(timedelta(seconds=1), reason="Warn pour contenu sexuel")
+                except Exception: pass
+                if log_ch: await log_ch.send(f"🚫 `WARN 1` : {member.mention} – contenu sexuel.")
+                try: await message.author.send("🚫 WARN 1 pour contenu sexuel.")
+                except Exception: pass
+                await message.channel.send("🚫 *Rappel : Garde la pudeur, crains Allah.*")
+            elif cnt == 2:
+                try: await member.timeout(timedelta(seconds=1), reason="2e avertissement contenu sexuel")
+                except Exception: pass
+                if log_ch: await log_ch.send(f"🚫 `WARN 2` : {member.mention} – récidive.")
+                try: await message.author.send("🚫 WARN 2 pour contenu sexuel.")
+                except Exception: pass
+                await message.channel.send("🚫 *Rappel : L’impudeur mène à l’égarement.*")
+            else:
+                try: await member.timeout(timedelta(minutes=10), reason="Mute 10min récidive")
+                except Exception: pass
+                if log_ch: await log_ch.send(f"🚫 `TEMPMUTE 10min` : {member.mention} – récidive.")
+                try: await message.author.send("🚫 TEMPMUTE 10min pour contenu sexuel.")
+                except Exception: pass
+                await message.channel.send("🚫 *Rappel : Crains Allah même en privé.*")
+                warn_counts[uid] = 0
+                save_warns()
+            return  # on ne nourrit pas l'IA dans ce cas
+
+    # === Le bot NE répond que s'il est adressé (DM/mention/reply/'zeydan ...') ===
+    if not is_addressed(message):
+        return
+
+    # Imposteur: réplique sèche SEULEMENT s’il l’adresse
     if is_impostor(message.author.id):
         try:
             await message.channel.send(random.choice(IMPOSTOR_REPLIES))
@@ -180,7 +265,7 @@ async def on_message(message: discord.Message):
 
     # --- DMs: répondre + log ---
     if isinstance(message.channel, discord.DMChannel):
-        log_ch = client.get_channel(MP_LOG_CHANNEL) if MP_LOG_CHANNEL else None
+        log_ch = bot.get_channel(MP_LOG_CHANNEL) if MP_LOG_CHANNEL else None
         try:
             reply = await ask_openai(message.author.id, str(message.author), message.content)
             await message.channel.send(reply)
@@ -194,109 +279,64 @@ async def on_message(message: discord.Message):
             print(f"[Erreur MP] {e}")
         return
 
-    # --- Filtrage contenu sexuel dans le salon IA ---
-    if SPECIAL_CHANNEL_ID and message.channel.id == SPECIAL_CHANNEL_ID:
-        if SEX_RE.search(message.content) and not any(x in message.content.lower() for x in ["mdr", "ptdr", "🚫", "blague", "c’est pour rire"]):
-            uid = str(message.author.id)
-            warn_counts[uid] = warn_counts.get(uid, 0) + 1
-            cnt = warn_counts[uid]
-            save_warns()
-            try:
-                member = await message.guild.fetch_member(message.author.id)
-            except Exception:
-                member = message.author
-
-            log_ch = client.get_channel(SANCTION_LOG_CHANNEL) if SANCTION_LOG_CHANNEL else None
-
-            if cnt == 1:
-                try:
-                    await member.timeout(timedelta(seconds=1), reason="Warn pour contenu sexuel")
-                except Exception:
-                    pass
-                if log_ch:
-                    await log_ch.send(f"🚫 `WARN 1` : {member.mention} – contenu sexuel.")
-                try:
-                    await message.author.send("🚫 WARN 1 pour contenu sexuel.")
-                except Exception:
-                    pass
-                await message.channel.send("🚫 *Rappel : Garde la pudeur, crains Allah.*")
-            elif cnt == 2:
-                try:
-                    await member.timeout(timedelta(seconds=1), reason="2e avertissement contenu sexuel")
-                except Exception:
-                    pass
-                if log_ch:
-                    await log_ch.send(f"🚫 `WARN 2` : {member.mention} – récidive.")
-                try:
-                    await message.author.send("🚫 WARN 2 pour contenu sexuel.")
-                except Exception:
-                    pass
-                await message.channel.send("🚫 *Rappel : L’impudeur mène à l’égarement.*")
-            else:
-                try:
-                    await member.timeout(timedelta(minutes=10), reason="Mute 10min récidive")
-                except Exception:
-                    pass
-                if log_ch:
-                    await log_ch.send(f"🚫 `TEMPMUTE 10min` : {member.mention} – récidive.")
-                try:
-                    await message.author.send("🚫 TEMPMUTE 10min pour contenu sexuel.")
-                except Exception:
-                    pass
-                await message.channel.send("🚫 *Rappel : Crains Allah même en privé.*")
-                warn_counts[uid] = 0
-                save_warns()
-            return
-
-    # --- Commandes ping autorisées ---
-    if message.content.lower().startswith("zeydan ping "):
-        if any(getattr(r, "id", None) == AUTHORIZED_MENTION_ROLE for r in getattr(message.author, "roles", [])):
-            rest = message.content[len("zeydan ping "):]
-            parts = rest.split(' ', 1)
-            target = parts[0].lower()
-            instr = parts[1] if len(parts) > 1 else ''
-
-            if target in ['everyone', 'here']:
-                mention = '@everyone' if target == 'everyone' else '@here'
-            else:
-                member = next((m for m in message.guild.members if m.name.lower() == target or m.display_name.lower() == target), None)
-                if not member:
-                    await message.channel.send(f"❌ Utilisateur '{target}' introuvable.")
-                    return
-                mention = member.mention
-
-            if instr.lower().startswith('dis lui '):
-                content = instr[len('dis lui '):]
-            elif instr:
-                prompt = f"Paraphrase de manière naturelle et stylée la phrase suivante pour {mention}, sans répéter mot à mot : '{instr}'"
-                content = await ask_openai(message.author.id, str(message.author), prompt)
-            else:
-                prompt = f"Formule un message court et taquin pour {mention}, sans propos haineux ni insultes graves."
-                content = await ask_openai(message.author.id, str(message.author), prompt)
-
-            await message.channel.send(
-                f"{mention} {content}".strip(),
-                allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True)
-            )
-        else:
-            await message.channel.send("Rôle non autorisé pour mentions.")
+    # --- Rappels islamiques: 'zeydan rappel <sujet>' ou 'rappel <sujet>' en l’adressant ---
+    low = (message.content or "").lower()
+    if low.startswith("zeydan rappel") or low.startswith("rappel "):
+        parts = message.content.split(" ", 2)
+        sujet = parts[2] if len(parts) >= 3 else ""
+        prompt = islamic_reminder_prompt(sujet)
+        reply = await ask_openai(message.author.id, str(message.author), prompt)
+        await message.channel.send(reply)
         return
 
-    if message.content.lower().startswith('ping '):
-        if any(getattr(r, "id", None) == AUTHORIZED_MENTION_ROLE for r in getattr(message.author, "roles", [])):
-            pseudo = message.content[len('ping '):].strip().lower()
-            member = next((m for m in message.guild.members if pseudo in m.name.lower() or pseudo in m.display_name.lower()), None)
-            if member:
-                await message.channel.send(f"{member.mention} {random.choice(['Répond !','On t’appelle !'])}")
-        return
-
-    # --- IA dans le salon IA ou si on mentionne le bot ---
-    if (SPECIAL_CHANNEL_ID and message.channel.id != SPECIAL_CHANNEL_ID) and (client.user not in message.mentions):
-        return
-
-    # Réponse IA (avec policy par utilisateur)
+    # --- Réponse IA standard (adressée) ---
     reply = await ask_openai(message.author.id, str(message.author), message.content)
     await message.channel.send(reply)
 
+# ---------------- Slash Commands ----------------
+def user_is_admin(member: discord.Member) -> bool:
+    if ADMIN_ROLE_ID and any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", [])):
+        return True
+    # fallback: permission manage_guild
+    return getattr(member.guild_permissions, "manage_guild", False)
+
+@tree.command(name="ping", description="Ping un membre ou everyone (réservé admin)")
+@app_commands.describe(target="Pseudo exact/partiel ou 'everyone'/'here'", message="Message optionnel")
+async def ping_cmd(interaction: discord.Interaction, target: str, message: str = ""):
+    # bloc imposteur
+    if is_impostor(interaction.user.id):
+        await interaction.response.send_message(random.choice(IMPOSTOR_REPLIES), ephemeral=True)
+        return
+
+    # check admin
+    if not isinstance(interaction.user, discord.Member) or not user_is_admin(interaction.user):
+        await interaction.response.send_message("❌ Tu n’as pas la permission d’utiliser cette commande.", ephemeral=True)
+        return
+
+    guild = interaction.guild
+    if not guild:
+        await interaction.response.send_message("❌ Commande utilisable uniquement en serveur.", ephemeral=True)
+        return
+
+    target_low = target.lower().strip()
+    if target_low in ["everyone", "here"]:
+        mention = "@everyone" if target_low == "everyone" else "@here"
+    else:
+        member = discord.utils.find(
+            lambda m: target_low in m.name.lower() or target_low in m.display_name.lower(),
+            guild.members
+        )
+        if not member:
+            await interaction.response.send_message(f"❌ Utilisateur '{target}' introuvable.", ephemeral=True)
+            return
+        mention = member.mention
+
+    content = f"{mention} {message}".strip()
+    await interaction.response.send_message(
+        content,
+        allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True)
+    )
+
+# ---------------- Run ----------------
 if __name__ == "__main__":
-    client.run(DISCORD_TOKEN)
+    bot.run(DISCORD_TOKEN)
