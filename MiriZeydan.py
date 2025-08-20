@@ -54,7 +54,8 @@ IMPOSTOR_REPLIES = [
     "Calme, champion. Je parle en vrai qu’à Nahya.",
     "Vas te faire foutre frr je suis pas gay, tu forces.",
     "T'es vraiment un clown !!!!",
-    "Ftg gros tu pourri l'ambiance avec ta présence",
+    "Heichek gros tu pourri l'ambiance avec ta présence",
+    "Ta pp ressemble à mon trdc ftg",
     "T'es usant mec et tu manques d'amour lâche ça et vas prier Allah",
     "Reviens quand tu seras Nahya. Spoiler : tu le seras jamais."
 ]
