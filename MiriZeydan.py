@@ -3,8 +3,6 @@ import re
 import json
 import random
 import discord
-from discord import app_commands
-from discord.ext import commands
 from openai import OpenAI
 from datetime import timedelta
 
@@ -15,7 +13,7 @@ intents.guilds = True
 intents.message_content = True
 intents.members = True
 
-# ---------------- Env helpers ----------------
+# ---------------- Env ----------------
 def env_int(name, default=None):
     val = os.getenv(name)
     if val is None:
@@ -28,11 +26,12 @@ def env_int(name, default=None):
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Channel/role IDs (overrideables via env)
-SPECIAL_CHANNEL_ID      = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
-SANCTION_LOG_CHANNEL    = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
-MP_LOG_CHANNEL          = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
-ADMIN_ROLE_ID           = env_int("ADMIN_ROLE_ID", None)                        # Rôle admin qui peut /ping (optionnel)
+# Channel/role IDs (overrideable via env)
+SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
+SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
+AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # Rôle autorisé
+MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
+ADMIN_ROLE_ID           = env_int("ADMIN_ROLE_ID", 1400518143595778079)                        # Rôle admin qui peut /ping (optionnel)
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
