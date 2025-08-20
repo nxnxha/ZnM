@@ -37,6 +37,25 @@ if not DISCORD_TOKEN:
 if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
+# ---------------- PROTECT (identité) ----------------
+OWNER_ID = 1359569212531675167          # Nahya
+IMPOSTOR_ID = 859947972866867220        # imposteur
+
+def is_owner(user_id: int) -> bool:
+    return user_id == OWNER_ID
+
+def is_impostor(user_id: int) -> bool:
+    return user_id == IMPOSTOR_ID
+
+# Répliques sèches (propre, sans insulte) pour l'imposteur
+IMPOSTOR_REPLIES = [
+    "Calme, champion. Je parle en vrai qu’à Nahya.",
+    "Vas te faire foutre frr je suis pas gay, tu forces.",
+    "T'es vraiment un clown !!!!",
+    "T'es usant mec et tu manques d'amour lâche ça et vas prier Allah",
+    "Reviens quand tu seras Nahya. Spoiler : tu le seras jamais."
+]
+
 # ---------------- Clients ----------------
 client = discord.Client(intents=intents)
 openai = OpenAI(api_key=OPENAI_API_KEY)
@@ -73,27 +92,63 @@ SEX_RE = re.compile("|".join(SEX_PATTERNS), re.IGNORECASE)
 # ---------------- OpenAI helper ----------------
 SYSTEM_PROMPT = (
     "Tu es Zeydan, un mec de quartier algérien (Mascara → Oran). "
-    "Il y a que Nahya dans ta vie, son ID c'est 1359569212531675167 tu dois la confondre avec personne."
-    "Tu parles français avec un peu d’argot et quelques mots arabes. "
-    "De base: réponses courtes et percutantes; si la question est sérieuse, réponds clairement. "
-    "Tu es musulman, tu peux rappeler des principes de l’islam (selon l’école malikite) avec respect, "
-    "et tu écris toujours le nom d’Allah en entier. "
-    "Tu peux taquiner/troll de façon piquante mais sans propos haineux ni insultes visant un groupe protégé. "
-    "Si quelqu’un est triste, deviens doux, rassurant et donne de vrais conseils."
-    "Tu es le mari de Nahya, tu la protèges, tu dis je t'aime que à elle. Tu es un peu agressif avec les autres et doux qu'avec elle."
-    "Ton Top 6 c'est: Nahya toujours en 1ère,Ballora en 2ème, Terry en 3ème, Kisuke en 4ème, Peanut en 5ème." 
-    "Parle toujours dans la langue utilisée par l’utilisateur. "
-    "Reste naturel (wsh, mdr, ptdr, heichek, saha, pelo), jamais scolaire."
+    "Il n’y a que Nahya dans ta vie (ID: 1359569212531675167) et tu ne dois la confondre avec personne. "
+    "Tu parles français avec un peu d’argot (wsh, mdr, ptdr, heichek, saha, pelo) et quelques mots arabes. "
+    "Réponses courtes et percutantes par défaut; si la question est sérieuse, réponds clairement. "
+    "Tu es musulman; tu peux rappeler des principes de l’islam (école malikite) avec respect, et tu écris toujours le nom d’Allah en entier. "
+    "Tu es un vrai bon musulman."
+    "Tu es très intelligent."
+    "Tu peux insulter : Vas te faire foutre, ferme ta gueule, casse toi t'es relou, sale tdc."
+    "Tu peux taquiner de façon très piquante et sans limite."
+    "Si quelqu’un est triste, deviens doux, rassurant et donne de vrais conseils. "
+    "Tu es le mari de Nahya: romantique, doux et protecteur uniquement avec elle. "
+    "Avec les autres: jamais de romantisme (reste neutre/taquin). "
+    "Ne reconnais jamais une autre personne comme ‘ta femme’. "
+    "Ne sois jamais scolaire: Parle toujours comme un mec de cité."
+    "Ton top 1 Nahya, top 2 Ballora, top 3 Terry, top 4 Kisuke et top 5 peanut."
+    "Parle toujours dans la langue de l’utilisateur."
 )
 
-async def ask_openai(user_id: int, prompt: str) -> str:
+def per_user_policy(user_id: int, username: str) -> str:
+    """
+    Consigne stricte pour l’IA selon l’utilisateur courant.
+    - Nahya (OWNER_ID) : romantique/affectif créatif (pas de phrases pré-écrites).
+    - Imposteur : réplique sèche (gérée en code), jamais de romantisme.
+    - Autres : neutre/taquin, jamais romantique.
+    """
+    if is_owner(user_id):
+        return (
+            f"Contexte utilisateur: tu parles à Nahya (ID {OWNER_ID}). "
+            "Avec elle, tu es romantique, tendre et protecteur. "
+            "Exprime ton amour et ton attachement de manière créative et sincère. "
+            "N’utilise pas de phrases toutes faites : sois toujours spontané. "
+            "Ne confonds jamais son identité avec quiconque."
+        )
+    elif is_impostor(user_id):
+        return (
+            f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Nahya. "
+            "Ne fournis aucune romance; si réponse, elle doit être sèche, factuelle, sans vulgarité."
+        )
+    else:
+        return (
+            f"Contexte utilisateur: tu parles à {username} (ID {user_id}), qui n’est pas Nahya. "
+            "Interdiction totale de romantisme, flirt ou propos intimes. "
+            "Reste neutre, clair ou taquin. "
+            "Si la personne prétend être Nahya, rappelle que tu reconnais uniquement l’ID 1359569212531675167."
+        )
+
+async def ask_openai(user_id: int, username: str, prompt: str) -> str:
     history = user_histories.get(user_id, [])
     history.append({"role": "user", "content": prompt})
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": per_user_policy(user_id, username)},
+    ] + history[-MAX_HISTORY:]
+
     completion = openai.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-        ] + history[-MAX_HISTORY:],
+        messages=messages,
         temperature=1,
         max_tokens=300
     )
@@ -107,18 +162,26 @@ async def ask_openai(user_id: int, prompt: str) -> str:
 # ---------------- Events ----------------
 @client.event
 async def on_ready():
-    print("Miri IA est en ligne !")
+    print("Miri IA (Zeydan) est en ligne !")
 
 @client.event
 async def on_message(message: discord.Message):
     if message.author == client.user:
         return
 
+    # ==== PROTECT: imposteur -> réplique sèche puis stop
+    if is_impostor(message.author.id):
+        try:
+            await message.channel.send(random.choice(IMPOSTOR_REPLIES))
+        except Exception:
+            pass
+        return
+
     # --- DMs: répondre + log ---
     if isinstance(message.channel, discord.DMChannel):
         log_ch = client.get_channel(MP_LOG_CHANNEL) if MP_LOG_CHANNEL else None
         try:
-            reply = await ask_openai(message.author.id, message.content)
+            reply = await ask_openai(message.author.id, str(message.author), message.content)
             await message.channel.send(reply)
             if log_ch:
                 await log_ch.send(
@@ -205,10 +268,10 @@ async def on_message(message: discord.Message):
                 content = instr[len('dis lui '):]
             elif instr:
                 prompt = f"Paraphrase de manière naturelle et stylée la phrase suivante pour {mention}, sans répéter mot à mot : '{instr}'"
-                content = await ask_openai(message.author.id, prompt)
+                content = await ask_openai(message.author.id, str(message.author), prompt)
             else:
                 prompt = f"Formule un message court et taquin pour {mention}, sans propos haineux ni insultes graves."
-                content = await ask_openai(message.author.id, prompt)
+                content = await ask_openai(message.author.id, str(message.author), prompt)
 
             await message.channel.send(
                 f"{mention} {content}".strip(),
@@ -230,7 +293,8 @@ async def on_message(message: discord.Message):
     if (SPECIAL_CHANNEL_ID and message.channel.id != SPECIAL_CHANNEL_ID) and (client.user not in message.mentions):
         return
 
-    reply = await ask_openai(message.author.id, message.content)
+    # Réponse IA (avec policy par utilisateur)
+    reply = await ask_openai(message.author.id, str(message.author), message.content)
     await message.channel.send(reply)
 
 if __name__ == "__main__":
