@@ -3,6 +3,8 @@ import re
 import json
 import random
 import discord
+from discord import app_commands            # ✅ nécessaire pour les slash cmds
+from discord.ext import commands            # ✅ nécessaire pour commands.Bot
 from openai import OpenAI
 from datetime import timedelta
 
@@ -29,9 +31,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Channel/role IDs (overrideable via env)
 SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
 SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
-AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # Rôle autorisé
+AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # Rôle autorisé (non utilisé ici)
 MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
-ADMIN_ROLE_ID           = env_int("ADMIN_ROLE_ID", 1400518143595778079)                        # Rôle admin qui peut /ping (optionnel)
+ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", 1400518143595778079)        # Rôle admin pour /ping
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
@@ -96,11 +98,12 @@ SEX_RE = re.compile("|".join(SEX_PATTERNS), re.IGNORECASE)
 # ---------------- Helpers ----------------
 def is_addressed(msg: discord.Message) -> bool:
     """
-    True si le message s'adresse au bot:
+    Le bot répond uniquement si :
     - DM
     - mention du bot
     - reply à un message du bot
     - commence par 'zeydan ' ou 'zeydan,'
+    (sauf dans le salon IA où il répond toujours, voir logique plus bas)
     """
     if isinstance(msg.channel, discord.DMChannel):
         return True
@@ -145,15 +148,9 @@ SYSTEM_PROMPT = (
     "Ne sois jamais scolaire: Parle toujours comme un mec de cité."
     "Ton top 1 Nahya, top 2 Ballora, top 3 Terry, top 4 Kisuke et top 5 peanut."
     "Parle toujours dans la langue de l’utilisateur."
-
 )
 
 def per_user_policy(user_id: int, username: str) -> str:
-    """
-    - Nahya (OWNER_ID) : romantique/affectif créatif (pas de phrases pré-écrites).
-    - Imposteur : ton sec, jamais romantique.
-    - Autres : neutre/taquin, jamais romantique.
-    """
     if is_owner(user_id):
         return (
             f"Contexte utilisateur: tu parles à Nahya (ID {OWNER_ID}). "
@@ -191,7 +188,6 @@ async def ask_openai(user_id: int, username: str, prompt: str) -> str:
         max_tokens=300
     )
     reply = completion.choices[0].message.content
-    # Nettoyage simple: retirer un éventuel préfixe "Zeydan:"
     reply = re.sub(r'^\s*Zeydan[:,]?\s*', '', reply, flags=re.IGNORECASE)
     history.append({"role": "assistant", "content": reply})
     user_histories[user_id] = history
@@ -251,11 +247,12 @@ async def on_message(message: discord.Message):
                 save_warns()
             return  # on ne nourrit pas l'IA dans ce cas
 
-    # === Le bot NE répond que s'il est adressé (DM/mention/reply/'zeydan ...') ===
-    if not is_addressed(message):
-        return
+    # === Réponse auto dans le salon IA, sinon seulement si adressé ===
+    if not (SPECIAL_CHANNEL_ID and message.channel.id == SPECIAL_CHANNEL_ID):
+        if not is_addressed(message):
+            return
 
-    # Imposteur: réplique sèche SEULEMENT s’il l’adresse
+    # Imposteur: réplique sèche seulement s’il l’adresse (ou s’il est dans le salon IA)
     if is_impostor(message.author.id):
         try:
             await message.channel.send(random.choice(IMPOSTOR_REPLIES))
@@ -279,7 +276,7 @@ async def on_message(message: discord.Message):
             print(f"[Erreur MP] {e}")
         return
 
-    # --- Rappels islamiques: 'zeydan rappel <sujet>' ou 'rappel <sujet>' en l’adressant ---
+    # --- Rappels islamiques (si adressé ou salon IA) ---
     low = (message.content or "").lower()
     if low.startswith("zeydan rappel") or low.startswith("rappel "):
         parts = message.content.split(" ", 2)
@@ -289,7 +286,7 @@ async def on_message(message: discord.Message):
         await message.channel.send(reply)
         return
 
-    # --- Réponse IA standard (adressée) ---
+    # --- Réponse IA ---
     reply = await ask_openai(message.author.id, str(message.author), message.content)
     await message.channel.send(reply)
 
@@ -297,18 +294,15 @@ async def on_message(message: discord.Message):
 def user_is_admin(member: discord.Member) -> bool:
     if ADMIN_ROLE_ID and any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", [])):
         return True
-    # fallback: permission manage_guild
     return getattr(member.guild_permissions, "manage_guild", False)
 
 @tree.command(name="ping", description="Ping un membre ou everyone (réservé admin)")
 @app_commands.describe(target="Pseudo exact/partiel ou 'everyone'/'here'", message="Message optionnel")
 async def ping_cmd(interaction: discord.Interaction, target: str, message: str = ""):
-    # bloc imposteur
     if is_impostor(interaction.user.id):
         await interaction.response.send_message(random.choice(IMPOSTOR_REPLIES), ephemeral=True)
         return
 
-    # check admin
     if not isinstance(interaction.user, discord.Member) or not user_is_admin(interaction.user):
         await interaction.response.send_message("❌ Tu n’as pas la permission d’utiliser cette commande.", ephemeral=True)
         return
