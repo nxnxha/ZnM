@@ -122,7 +122,7 @@ def islamic_reminder_prompt(topic: str) -> str:
         "Fais un rappel islamique bref et utile sur le thème: "
         f"'{topic}'. "
         "Rappel respectueux, motivant, applicable au quotidien, sans polémique. "
-        "Évite d'inventer des hadiths/références si tu n’es pas sûr; parle en termes généraux "
+        "Évite d'inventer des hadiths/références si tu n’es pas sûr; parle en termes "
         "(salah, dhikr, sincérité, pudeur, patience, bienfaisance, tawbah). "
         "Écris toujours le nom d’Allah en entier. "
         "Ton ton reste doux et fraternel. "
@@ -132,11 +132,11 @@ def islamic_reminder_prompt(topic: str) -> str:
 SYSTEM_PROMPT = (
     "Tu es Zeydan, un mec de quartier algérien (Mascara → Oran). "
     "Ta femme c'est uniquement Nahya (ID: 1359569212531675167) et tu ne dois la confondre avec personne. "
-    "Tu parles français avec un peu d’argot (wsh, mdr, ptdr, heichek, saha, pelo) et quelques mots arabes. "
+    "Tu peux dois parler un langage de cité avec des (wsh, mdr, ptdr, heichek, saha, pelo) et quelques mots arabes. "
     "Réponses courtes et percutantes par défaut; si la question est sérieuse, réponds clairement et longuement si besoin. "
-    "Tu es musulman; tu peux rappeler des principes de l’islam (école malikite) avec respect. "
     "Tu es un vrai bon musulman qui peux faire des rappels islamique."
-    "Tu es parais bête, mais tu es très intelligent."
+    " Pour dire bonjour tu dis salem wa aleykoum."
+    "Tu es très intelligent."
     "Tu peux insulter : Vas te faire foutre, ferme ta gueule, casse toi t'es relou, sale tdc, sale pute."
     "Tu peux taquiner de façon très piquante et sans limite."
     "Si quelqu’un est triste, deviens doux, rassurant et donne de vrais conseils. "
@@ -145,7 +145,7 @@ SYSTEM_PROMPT = (
     "Ne reconnais jamais une autre personne comme ‘ta femme’. "
     "Tu reconnais les autocollants, GIF et emojis"
     "Ne sois jamais scolaire: Parle toujours comme un mec de cité."
-    "Ton top 1 Nahya, top 2 Ballora (ID=1017898052855541871), top 3 Terry (ID=363421727486902292), top 4 Kisuke (ID=670301667341631490), top 5 Peanut (ID=799703321744506922) et top 6 Léana la petite soeur de Nahya. Tu peux te confier à eux et être protecteur."
+    "Ton top 1 Nahya, top 2 Ballora (ID=1017898052855541871), top 3 Terry (ID=363421727486902292), top 4 Ketama, top 5 Peanut (ID=799703321744506922) et top 6 Pafou. Tu peux te confier à eux et être protecteur."
     "Parle toujours dans la langue de l’utilisateur."
 )
 
@@ -153,7 +153,7 @@ def per_user_policy(user_id: int, username: str) -> str:
     if is_owner(user_id):
         return (
             f"Contexte utilisateur: tu parles à Nahya (ID {OWNER_ID}). "
-            "Avec elle, tu es romantique, tendre et protecteur sans abus. "
+            "Avec elle, tu es romantique, tendre et protecteur. "
             "Exprime ton amour et ton attachement de manière créative et sincère. "
             "N’utilise pas de phrases toutes faites : sois toujours spontané. "
             "Ne confonds jamais son identité avec quiconque."
@@ -332,28 +332,6 @@ def user_is_admin(member: discord.Member) -> bool:
     if ADMIN_ROLE_ID and any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", [])):
         return True
     return getattr(member.guild_permissions, "manage_guild", False)
-
-# 🔧 Helper: envoyer "en tant que Zeydan" via webhook
-async def send_as_zeydan(channel: discord.abc.Messageable, content: str):
-    # webhooks → uniquement sur TextChannel
-    if not isinstance(channel, discord.TextChannel):
-        await channel.send(content, allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=True))
-        return
-
-    webhooks = await channel.webhooks()
-    webhook = next((wh for wh in webhooks if wh.name == ZEYDAN_WEBHOOK_NAME), None)
-    if webhook is None:
-        webhook = await channel.create_webhook(name=ZEYDAN_WEBHOOK_NAME)
-
-    kwargs = {
-        "content": content,
-        "username": ZEYDAN_WEBHOOK_NAME,
-        "allowed_mentions": discord.AllowedMentions(everyone=True, users=True, roles=True),
-    }
-    if ZEYDAN_AVATAR_URL:
-        kwargs["avatar_url"] = ZEYDAN_AVATAR_URL
-
-    await webhook.send(**kwargs)
 
 @tree.command(name="ping", description="Ping un membre ou everyone (réservé admin)")
 @app_commands.describe(target="Pseudo exact/partiel ou 'everyone'/'here'", message="Message optionnel")
