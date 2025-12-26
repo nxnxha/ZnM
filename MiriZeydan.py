@@ -45,7 +45,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
 # ---------------- PROTECT (identité) ----------------
-OWNER_ID    = 1359569212531675167          # Nahya
+OWNER_ID    = 1359569212531675167          # sofiya
 IMPOSTOR_ID = None                         # mets un int si tu veux bloquer quelqu’un
 
 def is_owner(user_id: int) -> bool:
@@ -160,15 +160,15 @@ def per_user_policy(user_id: int, username: str) -> str:
         )
     elif is_impostor(user_id):
         return (
-            f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Nahya. "
+            f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Sofiya. "
             "Réponds de façon sèche et factuelle, sans vulgarité, jamais de romantisme."
         )
     else:
         return (
-            f"Contexte utilisateur: tu parles à {username} (ID {user_id}), qui n’est pas Nahya. "
+            f"Contexte utilisateur: tu parles à {username} (ID {user_id}), qui n’est pas Sofiya. "
             "Interdiction totale de flirt ou propos intimes. "
             "Reste neutre, clair ou taquin. "
-            "Si la personne prétend être Nahya, rappelle que tu reconnais uniquement l’ID 1359569212531675167."
+            "Si la personne prétend être Sofiya, rappelle que tu reconnais uniquement l’ID 1359569212531675167."
         )
 
 # -------- Reply context (suivre une discussion via réponses) --------
