@@ -30,14 +30,14 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Channel/role IDs (overrideable via env)
 SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
-SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", 1400520145331556354) # Logs sanctions
+SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", ) # Logs sanctions
 AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # (non utilisé ici)
 MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
 ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", 1400518143595778079)        # Rôle admin pour /ping
 
-# ✨ Options “Zeydan” (facultatives)
-ZEYDAN_WEBHOOK_NAME = os.getenv("ZEYDAN_WEBHOOK_NAME", "Zeydan")
-ZEYDAN_AVATAR_URL   = os.getenv("ZEYDAN_AVATAR_URL", "")  # URL http(s) vers avatar si tu veux
+# ✨ Options “Mimi” (facultatives)
+MIMI_WEBHOOK_NAME = os.getenv("MIMI_WEBHOOK_NAME", "Mimi")
+MIMI_AVATAR_URL   = os.getenv("MIMI_AVATAR_URL", "")  # URL http(s) vers avatar si tu veux
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
@@ -102,7 +102,7 @@ def is_addressed(msg: discord.Message) -> bool:
     - DM
     - mention du bot
     - reply à un message du bot
-    - commence par 'zeydan ' ou 'zeydan,'
+    - commence par 'Mimi ' ou 'mimi,'
     (sauf dans le salon IA où il répond toujours)
     """
     if isinstance(msg.channel, discord.DMChannel):
@@ -114,24 +114,12 @@ def is_addressed(msg: discord.Message) -> bool:
         if ref and ref.author.id == bot.user.id:
             return True
     content = (msg.content or "").strip().lower()
-    return content.startswith("zeydan ") or content.startswith("zeydan,")
-
-def islamic_reminder_prompt(topic: str) -> str:
-    topic = (topic or "").strip() or "général"
-    return (
-        "Fais un rappel islamique bref et utile sur le thème: "
-        f"'{topic}'. "
-        "Rappel respectueux, motivant, applicable au quotidien, sans polémique. "
-        "Évite d'inventer des hadiths/références si tu n’es pas sûr; parle en termes "
-        "(salah, dhikr, sincérité, pudeur, patience, bienfaisance, tawbah). "
-        "Écris toujours le nom d’Allah en entier. "
-        "Ton ton reste doux et fraternel. "
-    )
+    return content.startswith("mimi ") or content.startswith("mimi,")
+    
 
 # ---------------- OpenAI prompts ----------------
 SYSTEM_PROMPT = (
-    "Tu es Zeydan, un mec de quartier algérien (Mascara → Oran). "
-    "Ta femme c'est uniquement Sofiya (ID: 1359569212531675167) et tu ne dois la confondre avec personne. "
+    "Tu es Mimi, une femme."
     "Tu peux dois parler un langage de cité avec des (wsh, mdr, ptdr, heichek, saha, pelo) et quelques mots arabes. "
     "Réponses courtes et percutantes par défaut; si la question est sérieuse, réponds clairement et longuement si besoin. "
     "Tu es un vrai bon musulman qui peux faire des rappels islamique."
@@ -177,7 +165,7 @@ async def build_reply_context(message: discord.Message, max_hops: int = 6) -> st
     Remonte la chaîne des replies jusqu'à max_hops et construit un mini transcript.
     Format:
       [Auteur]: contenu
-    L'auteur 'bot' est renommé 'Zeydan' pour cohérence.
+    L'auteur 'bot' est renommé 'Mimi' pour cohérence.
     """
     ctx_lines = []
     cur = message
@@ -185,7 +173,7 @@ async def build_reply_context(message: discord.Message, max_hops: int = 6) -> st
 
     while cur.reference and isinstance(cur.reference.resolved, discord.Message) and hops < max_hops:
         ref = cur.reference.resolved
-        author_name = "Zeydan" if (bot.user and ref.author.id == bot.user.id) else str(ref.author)
+        author_name = "Mimi" if (bot.user and ref.author.id == bot.user.id) else str(ref.author)
         ref_content = (ref.content or "").strip()
         if ref_content:
             ctx_lines.append(f"[{author_name}]: {ref_content}")
@@ -222,7 +210,7 @@ async def ask_openai(user_id: int, username: str, prompt: str, reply_context: st
         max_tokens=900
     )
     reply = completion.choices[0].message.content
-    reply = re.sub(r'^\s*Zeydan[:,]?\s*', '', reply, flags=re.IGNORECASE)
+    reply = re.sub(r'^\s*Mimi[:,]?\s*', '', reply, flags=re.IGNORECASE)
     history.append({"role": "assistant", "content": reply})
     user_histories[user_id] = history
     return reply
@@ -313,7 +301,7 @@ async def on_message(message: discord.Message):
 
     # --- Rappels islamiques (si adressé ou salon IA) ---
     low = (message.content or "").lower()
-    if low.startswith("zeydan rappel") or low.startswith("rappel "):
+    if low.startswith("mimi rappel") or low.startswith("rappel "):
         parts = message.content.split(" ", 2)
         sujet = parts[2] if len(parts) >= 3 else ""
         prompt = islamic_reminder_prompt(sujet)
@@ -370,10 +358,10 @@ async def ping_cmd(interaction: discord.Interaction, target: str, message: str =
     # 👉 EPHEMERAL ACK
     await interaction.response.defer(ephemeral=True)
 
-    # 👉 Post "en tant que Zeydan" via webhook
+    # 👉 Post "en tant que Mimi" via webhook
     try:
-        await send_as_zeydan(interaction.channel, content)
-        await interaction.followup.send("✅ Envoyé par **Zeydan**.", ephemeral=True)
+        await send_as_mimi(interaction.channel, content)
+        await interaction.followup.send("✅ Envoyé par **Mimi**.", ephemeral=True)
     except discord.Forbidden:
         await interaction.followup.send("❌ Il me manque la permission **Gérer les webhooks** dans ce salon.", ephemeral=True)
     except Exception as e:
