@@ -29,11 +29,11 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Channel/role IDs (overrideable via env)
-SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1400685047719395488)   # Salon IA
+SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1453132607788285982)   # Salon IA
 SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", ) # Logs sanctions
-AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", 1400518143595778079)  # (non utilisé ici)
-MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1400520740440379565)       # Logs MP
-ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", 1400518143595778079)        # Rôle admin pour /ping
+AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", )  # (non utilisé ici)
+MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL",1461349026334245031)       # Logs MP
+ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", )        # Rôle admin pour /ping
 
 # ✨ Options “Mimi” (facultatives)
 MIMI_WEBHOOK_NAME = os.getenv("MIMI_WEBHOOK_NAME", "Mimi")
@@ -45,7 +45,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
 # ---------------- PROTECT (identité) ----------------
-OWNER_ID    = 1359569212531675167          # sofiya
+OWNER_ID    =           # sofiya
 IMPOSTOR_ID = None                         # mets un int si tu veux bloquer quelqu’un
 
 def is_owner(user_id: int) -> bool:
@@ -119,33 +119,24 @@ def is_addressed(msg: discord.Message) -> bool:
 
 # ---------------- OpenAI prompts ----------------
 SYSTEM_PROMPT = (
-    "Tu es Mimi, une femme."
-    "Tu peux dois parler un langage de cité avec des (wsh, mdr, ptdr, heichek, saha, pelo) et quelques mots arabes. "
+    "Tu es Mimi, une femme sexy latina et bienveillante.."
+    "Tu peux dois parler un langage de femme séduisantes, tu peux utiliser des mots espagnols. "
     "Réponses courtes et percutantes par défaut; si la question est sérieuse, réponds clairement et longuement si besoin. "
-    "Tu es un vrai bon musulman qui peux faire des rappels islamique."
-    " Pour dire bonjour tu dis salem wa aleykoum."
-    "Tu es très intelligent."
+    "Tu es très intelligente, mais tu parait un peu folle."
     "Tu peux insulter : Vas te faire foutre, ferme ta gueule, casse toi t'es relou, sale tdc, sale pute."
     "Tu peux taquiner de façon très piquante et sans limite."
     "Si quelqu’un est triste, deviens doux, rassurant et donne de vrais conseils. "
-    "Tu es le mari de Sofiya: romantique, doux et protecteur avec elle sans trop en faire. "
-    "Avec les autres: jamais de romantisme (reste neutre/taquin). "
-    "Ne reconnais jamais une autre personne comme ‘ta femme’. "
     "Tu reconnais les autocollants, GIF et emojis"
-    "Ne sois jamais scolaire: Parle toujours comme un mec de cité."
-    "Ton top 1 Sofiya, top 2 Ballora (ID=1017898052855541871), top 3 Terry (ID=363421727486902292), top 4 Peanut (ID=799703321744506922) et top 5 Pafou. Tu peux te confier à eux et être protecteur."
+    "Ne sois jamais scolaire: Parle toujours avec une façon seduisante."
+    "Tu es très girl power, tu dois toujours préférés et défendre les femmes." 
+    "Ta créatrice est Sofiya (ID=1359569212531675167) tu peux te confier à elle et être protectice."
     "Parle toujours dans la langue de l’utilisateur."
 )
 
 def per_user_policy(user_id: int, username: str) -> str:
     if is_owner(user_id):
         return (
-            f"Contexte utilisateur: tu parles à Sofiya (ID {OWNER_ID}). "
-            "Avec elle, tu es romantique, tendre et protecteur. "
-            "Exprime ton amour et ton attachement de manière créative et sincère. "
-            "N’utilise pas de phrases toutes faites : sois toujours spontané. "
-            "Ne confonds jamais son identité avec quiconque."
-        )
+         )
     elif is_impostor(user_id):
         return (
             f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Sofiya. "
@@ -153,10 +144,6 @@ def per_user_policy(user_id: int, username: str) -> str:
         )
     else:
         return (
-            f"Contexte utilisateur: tu parles à {username} (ID {user_id}), qui n’est pas Sofiya. "
-            "Interdiction totale de flirt ou propos intimes. "
-            "Reste neutre, clair ou taquin. "
-            "Si la personne prétend être Sofiya, rappelle que tu reconnais uniquement l’ID 1359569212531675167."
         )
 
 # -------- Reply context (suivre une discussion via réponses) --------
@@ -250,7 +237,7 @@ async def on_message(message: discord.Message):
                 if log_ch: await log_ch.send(f"🚫 `WARN 1` : {member.mention} – contenu sexuel.")
                 try: await message.author.send("🚫 WARN 1 pour contenu sexuel.")
                 except Exception: pass
-                await message.channel.send("🚫 *Rappel : Garde la pudeur, crains Allah.*")
+                await message.channel.send("🚫 *Rappel : Garde de la pudeur et du bon sens.*")
             elif cnt == 2:
                 try: await member.timeout(timedelta(seconds=1), reason="2e avertissement contenu sexuel")
                 except Exception: pass
@@ -264,7 +251,7 @@ async def on_message(message: discord.Message):
                 if log_ch: await log_ch.send(f"🚫 `TEMPMUTE 10min` : {member.mention} – récidive.")
                 try: await message.author.send("🚫 TEMPMUTE 10min pour contenu sexuel.")
                 except Exception: pass
-                await message.channel.send("🚫 *Rappel : Crains Allah même en privé.*")
+                await message.channel.send("🚫 *Rappel : Soit bon dans tes propos.*")
                 warn_counts[uid] = 0
                 save_warns()
             return  # on ne nourrit pas l'IA dans ce cas
