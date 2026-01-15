@@ -45,7 +45,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
 # ---------------- PROTECT (identité) ----------------
-OWNER_ID    =           # sofiya
+OWNER_ID    = 1359569212531675167 # sofiya
 IMPOSTOR_ID = None                         # mets un int si tu veux bloquer quelqu’un
 
 def is_owner(user_id: int) -> bool:
