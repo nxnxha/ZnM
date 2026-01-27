@@ -29,10 +29,10 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Channel/role IDs (overrideable via env)
-SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1453132607788285982)   # Salon IA
+SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1465321003092807722)   # Salon IA
 SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", ) # Logs sanctions
 AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", )  # (non utilisé ici)
-MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL",1461349026334245031)       # Logs MP
+MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL",1465320725660438601)       # Logs MP
 ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", )        # Rôle admin pour /ping
 
 # ✨ Options “Mimi” (facultatives)
