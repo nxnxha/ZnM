@@ -89,9 +89,7 @@ def save_warns():
 
 # ---------------- Filtering ----------------
 SEX_PATTERNS = [
-    r"\bcul\b", r"\bbaise(?:r|s|z)?\b", r"\bsexe\b", r"\bp[o0]rn\b",
-    r"\bpénis\b", r"\bbite\b", r"\bchatte\b", r"\bfellatio[n]?\b",
-    r"\bsodomie\b", r"\branle(r|tte)?\b", r"\bbande(?:r)?\b", 
+    r"\bviol\b", r"\bviole(?:r|s|z)?\b", 
 ]
 SEX_RE = re.compile("|".join(SEX_PATTERNS), re.IGNORECASE)
 
