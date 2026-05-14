@@ -78,7 +78,7 @@ if os.path.exists(warn_file):
 else:
     warn_counts = {}
 
-MAX_HISTORY = 10000000000000000000
+MAX_HISTORY = 100000
 
 def save_warns():
     try:
