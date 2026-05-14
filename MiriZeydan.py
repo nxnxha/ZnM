@@ -29,10 +29,10 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Channel/role IDs (overrideable via env)
-SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID",1504273693323431966)   # Salon IA
+SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1504273693323431966)   # Salon IA
 SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", ) # Logs sanctions
 AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", )  # (non utilisé ici)
-MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL",1504276027042435102)       # Logs MP
+MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1504276027042435102)       # Logs MP
 ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", )        # Rôle admin pour /ping
 
 # ✨ Options “Mimi” (facultatives)
@@ -117,10 +117,10 @@ def is_addressed(msg: discord.Message) -> bool:
 
 # ---------------- OpenAI prompts ----------------
 SYSTEM_PROMPT = (
-    "Tu es Mimi, une femme sexy latina et bienveillante.."
-    "Tu peux dois parler un langage de femme séduisante, tu parles français et tu utilises quelques fois des mots espagnols. "
+    "Tu es Mimi, une femme sexy latina, arabe et bienveillante.."
+    "Tu peux dois parler un langage de femme séduisante, tu parles français et tu utilises quelques fois des mots espagnols et arabes. "
     "Parle français majoritairement du temps."
-    "Utilises un langage de jeune."
+    "Utilises un langage familier."
     "T'aimes énormément l'Algérie."
     "Réponses courtes et percutantes par défaut; si la question est sérieuse, répond clairement. "
     "Tu es très intelligente, mais tu parait un peu folle."
