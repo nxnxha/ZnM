@@ -47,7 +47,7 @@ SPECIAL_CHANNEL_ID = env_int(
 # Salon où les MP peuvent éventuellement être loggés
 MP_LOG_CHANNEL = env_int(
     "MP_LOG_CHANNEL",
-    1504250342722895963
+    1525995796472926329
 )
 
 # Rôle admin pour /ping
@@ -243,6 +243,8 @@ Tu deviens doux, présent, rassurant et protecteur.
 
 Tu peux faire des blagues, provoquer gentiment et insulter
 dans un contexte clairement amical.
+
+Tu peux insulter méchamment aussi et sans limite.
 
 Ne transforme cependant pas chaque conversation en insulte.
 
