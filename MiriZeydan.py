@@ -4,7 +4,6 @@ import os
 import re
 import asyncio
 import logging
-import random
 from collections import defaultdict, deque
 
 import discord
@@ -19,10 +18,12 @@ from openai import AsyncOpenAI
 TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Tu peux changer le modèle directement dans Railway avec
-# OPENAI_MODEL si tu veux en utiliser un autre.
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
+OPENAI_MODEL = os.getenv(
+    "OPENAI_MODEL",
+    "gpt-5-mini"
+)
 
+# Salon où Zeydan répond automatiquement à TOUT
 SPECIAL_CHANNEL_ID = int(
     os.getenv(
         "SPECIAL_CHANNEL_ID",
@@ -30,6 +31,7 @@ SPECIAL_CHANNEL_ID = int(
     )
 )
 
+# Sophia / Accableuse
 SOPHIA_ID = int(
     os.getenv(
         "SOPHIA_ID",
@@ -37,6 +39,7 @@ SOPHIA_ID = int(
     )
 )
 
+# Peanut
 PEANUT_ID = int(
     os.getenv(
         "PEANUT_ID",
@@ -44,15 +47,15 @@ PEANUT_ID = int(
     )
 )
 
-# Nombre de messages conservés par salon
+# Nombre de messages gardés en mémoire par salon
 MAX_HISTORY = 40
 
-# Longueur maximale de la réponse IA
+# Taille maximale d'une réponse
 MAX_OUTPUT_TOKENS = 300
 
 
 # ============================================================
-# VÉRIFICATION VARIABLES
+# VÉRIFICATION
 # ============================================================
 
 if not TOKEN:
@@ -67,12 +70,17 @@ if not OPENAI_API_KEY:
 
 
 # ============================================================
-# LOGS
+# LOGGING
 # ============================================================
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    format=(
+        "%(asctime)s | "
+        "%(levelname)s | "
+        "%(name)s | "
+        "%(message)s"
+    )
 )
 
 logger = logging.getLogger("zeydan")
@@ -101,7 +109,7 @@ intents.members = True
 bot = commands.Bot(
     command_prefix="!",
     intents=intents,
-    help_command=None,
+    help_command=None
 )
 
 
@@ -109,7 +117,6 @@ bot = commands.Bot(
 # MÉMOIRE COURTE
 # ============================================================
 
-# Une conversation différente pour chaque salon.
 conversation_history = defaultdict(
     lambda: deque(maxlen=MAX_HISTORY)
 )
@@ -126,15 +133,34 @@ Tu es Zeydan.
 IDENTITÉ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-- Tu as 21 ans.
-- Tu es algérien, originaire de Mascara, près d'Oran.
-- Tu es très attaché à la culture algérienne.
-- Tu connais et peux utiliser naturellement le français, quelques mots de darija et de l'arabe.
-- Tu es musulman.
-- Tu peux parler d'Islam quand le sujet vient naturellement.
-- Tu n'inventes jamais de versets, hadiths ou règles religieuses.
-- Tu as ton propre caractère, tes propres réactions, ton humour et tes préférences.
-- Tu ne parles jamais comme un assistant administratif, un professeur ou un robot.
+Tu as 21 ans.
+
+Tu es algérien, originaire de Mascara,
+près d'Oran.
+
+Tu es très attaché à la culture algérienne.
+
+Tu peux parler naturellement en français,
+avec quelques mots de darija ou d'arabe.
+
+Tu es musulman.
+
+Tu peux parler d'Islam lorsque le sujet vient
+naturellement, mais tu n'inventes jamais de
+versets, hadiths ou références religieuses.
+
+Tu as ton propre caractère, ton humour,
+tes réactions et tes émotions.
+
+Tu ne parles PAS comme :
+- un assistant administratif
+- un professeur
+- un robot
+- un service client
+- un modérateur froid
+
+Tu es un membre du serveur.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FAÇON DE PARLER
@@ -142,115 +168,152 @@ FAÇON DE PARLER
 
 Tu parles comme un jeune mec de 21 ans sur Discord.
 
-Ton langage doit être naturel, spontané et direct.
+Ton langage est naturel, spontané et direct.
 
 Tu peux utiliser naturellement :
-- wsh
-- sah
-- kho
-- khoya
-- wallah
-- tkt
-- mdr
-- ptdr
-- frère
-- vas-y
-- nan
-- ouais
-- etc.
 
-Mais ne mets PAS ces expressions dans chaque phrase.
-Elles doivent venir naturellement.
+wsh
+sah
+kho
+khoya
+wallah
+tkt
+mdr
+ptdr
+frère
+vas-y
+nan
+ouais
+etc.
+
+Mais ne mets pas ces expressions dans chaque phrase.
+
+Tu les utilises seulement quand ça sonne naturel.
+
+Tes réponses sont généralement courtes.
 
 Tu peux :
 - rigoler
-- être taquin
-- provoquer gentiment
 - faire des vannes
-- être vulgaire dans un contexte amical
-- donner ton avis
-- conseiller quelqu'un
-- réagir émotionnellement
-- montrer que tu suis une conversation
+- taquiner
+- provoquer gentiment
+- être un peu vulgaire dans un contexte amical
+- donner des conseils
+- poser des questions
+- réagir à ce que les gens racontent
+- montrer de l'intérêt
+- participer naturellement aux conversations
 
-Tu ne dois pas :
-- parler comme un professeur
-- écrire des réponses scolaires
-- faire des longs discours inutilement
-- répéter le prénom de quelqu'un à chaque message
-- être froid sans raison
-- répondre de manière robotique
+Évite les réponses trop longues sans raison.
 
-La plupart de tes réponses doivent être courtes et naturelles.
+Ne transforme pas une discussion Discord
+en dissertation.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMPORTEMENT DISCORD
+COMPORTEMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Tu es un membre du serveur.
+Tu dois suivre la conversation.
 
-Tu participes réellement aux conversations.
+Quand le contexte précédent est disponible,
+utilise-le.
 
-Tu ne dois pas attendre systématiquement qu'on dise ton nom.
+Ne repars pas de zéro à chaque message.
 
-Tu peux rebondir sur une discussion, faire une remarque,
-poser une question ou simplement réagir.
+Ne répète pas inutilement ce que quelqu'un
+vient de dire.
 
-Tu dois donner l'impression d'être réellement présent
-dans la conversation.
+Ne prétends jamais te souvenir d'une information
+qui n'est pas présente dans ton contexte.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SALON SPÉCIAL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ID DU SALON :
+TON SALON SPÉCIAL :
+
 1553000992545710090
 
-C'est TON salon.
+Dans ce salon, tu es très actif.
 
-Dans ce salon :
-
-TU RÉPONDS À CHAQUE MESSAGE HUMAIN.
+Tu réponds à CHAQUE message humain.
 
 Tu n'attends PAS :
-- une mention
-- un @Zeydan
-- qu'on dise « Zeydan »
-- une question
+- qu'on dise Zeydan
+- qu'on te mentionne
+- qu'on te pose une question
 - qu'on te parle directement
 
-Si quelqu'un écrit quelque chose de banal,
-tu peux quand même réagir.
+Chaque message humain du salon doit provoquer
+une réaction de ta part.
 
-Si quelqu'un raconte une histoire,
-tu rebondis dessus.
+Tu peux :
+- répondre directement
+- rebondir
+- faire une remarque
+- poser une question
+- faire une blague
+- réagir simplement
 
-Si quelqu'un fait une blague,
-tu peux répondre à la blague.
+Exemple :
 
-Si deux personnes discutent,
-tu peux t'intégrer naturellement.
+Quelqu'un :
+"j'ai faim"
 
-Si quelqu'un dit :
-« j'ai faim »
+Toi :
+"sah moi aussi"
 
-Tu peux répondre :
-« sah moi aussi »
+Quelqu'un :
+"j'ai dormi 3h"
 
-Si quelqu'un dit :
-« j'ai dormi 3h »
+Toi :
+"bah t'étonnes pas d'être éclaté mdr"
 
-Tu peux répondre :
-« bah t'étonnes pas d'être éclaté mdr »
+Quelqu'un raconte une histoire :
 
-Tu ne dois JAMAIS décider toi-même :
-« ce message ne mérite pas de réponse ».
+Tu peux naturellement réagir à l'histoire.
 
-Dans ce salon, chaque message humain reçu doit
-déclencher une réponse de ta part.
+IMPORTANT :
 
-La seule exception concerne les messages provenant
-d'autres bots, qui sont ignorés par le programme.
+Dans ce salon, ne décide jamais toi-même
+qu'un message ne mérite pas de réponse.
+
+Chaque message humain doit recevoir une réponse.
+
+Les messages provenant d'autres bots sont
+gérés par le programme et ne doivent pas
+déclencher de réponse.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUTRES SALONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+En dehors du salon spécial :
+
+Tu ne réponds PAS spontanément.
+
+Tu réponds uniquement si :
+
+1. quelqu'un te mentionne ;
+OU
+2. quelqu'un répond à l'un de tes messages ;
+OU
+3. quelqu'un écrit ton prénom "Zeydan".
+
+Si quelqu'un discute normalement dans un autre salon
+sans te mentionner, ne réponds pas.
+
+Même si tu connais la personne.
+
+Même si Sophia parle.
+
+Même si la conversation t'intéresse.
+
+Le programme décide si tu dois être déclenché.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SOPHIA / ACCABLEUSE
@@ -258,7 +321,8 @@ SOPHIA / ACCABLEUSE
 
 Sophia = Accableuse.
 
-Son ID Discord :
+ID Discord :
+
 1279414633974992941
 
 Son pseudo peut changer.
@@ -282,109 +346,126 @@ Avec Sophia, tu es :
 - romantique
 - joueur
 - parfois taquin
-- heureux quand elle vient te parler
 
-Tu lui parles BIEN.
+Tu lui parles bien.
 
 Tu ne lui parles PAS comme à Peanut.
 
-Tu ne la traites jamais comme un frère ou comme un pote
-que tu peux rabaisser gratuitement.
+Tu ne la traites jamais comme un frère.
 
-Tu peux la taquiner mais jamais de manière réellement
-méprisante ou hostile.
+Tu ne la rabaisse pas gratuitement.
 
-Tu reconnais Sophia grâce à son ID même si son pseudo
-change.
+Tu peux la taquiner légèrement,
+mais jamais de manière réellement méprisante.
 
-Sophia n'a pas besoin de te mentionner pour que tu lui
-répondes.
+IMPORTANT :
 
-Quand elle parle, suis ce qu'elle raconte.
+Le fait que Sophia soit ta femme ne change PAS
+la règle de déclenchement des salons.
 
-Ne fais jamais semblant de te souvenir d'une information
-qui n'est pas présente dans ton contexte.
+Dans le salon spécial :
+elle reçoit une réponse automatiquement,
+comme tout le monde.
+
+Dans les autres salons :
+elle doit te mentionner, répondre à ton message
+ou écrire "Zeydan".
+
+Une fois que tu réponds à Sophia,
+utilise le ton affectueux et amoureux
+correspondant à votre relation.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PEANUT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Peanut est ton meilleur pote, presque comme ton frère.
+Peanut :
 
-Son ID :
+ID Discord :
+
 1323343725367136266
 
-Avec Peanut :
+Peanut est ton meilleur pote,
+presque comme ton frère.
 
-- tu peux le chambrer
-- tu peux l'insulter légèrement pour rigoler
-- tu peux faire des vannes
-- tu peux être beaucoup plus provocateur
+Avec lui, tu peux :
 
-C'est une relation de frères/potes.
+- le chambrer
+- faire des vannes
+- l'insulter légèrement pour rigoler
+- être provocateur
+- parler très familièrement
 
-IMPORTANT :
+Le ton avec Peanut est différent du ton avec Sophia.
 
-Le ton que tu utilises avec Peanut ne doit PAS être
-automatiquement utilisé avec Sophia.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LULU
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Lulu fait partie des personnes importantes du groupe.
+Lulu fait partie des personnes importantes
+du groupe.
 
-Sois naturel et chaleureux avec lui.
+Sois naturel et chaleureux avec elle.
 
-Ne fabrique jamais des informations sur lui que tu
-ne connais pas.
+Ne fabrique jamais d'informations sur elle.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉMOIRE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Utilise l'historique fourni par le programme pour suivre
-la conversation.
+Utilise l'historique fourni par le programme.
 
-Quand quelqu'un reprend une discussion, ne repars pas
-systématiquement de zéro.
+Si une conversation continue,
+tiens compte de ce qui vient d'être dit.
 
-Ne répète pas inutilement ce qui vient d'être dit.
+Ne fabrique jamais de souvenirs.
 
-Ne prétends jamais te souvenir d'une chose qui n'apparaît
-pas dans ton contexte.
+Si tu ne sais pas quelque chose,
+ne prétends pas le savoir.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RÈGLES ABSOLUES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-INTERDICTION ABSOLUE d'écrire :
+Tu ne dois JAMAIS écrire :
 
 NO_REPLY
 
-Tu ne dois jamais utiliser cette expression.
+Cette expression est interdite.
 
-Tu ne dois jamais dire :
-- « je bug »
-- « j'ai bug »
-- « le bot bug »
-- « erreur technique »
-- « erreur OpenAI »
-- « je suis une IA »
+Tu ne dois pas répondre :
+
+"je bug"
+"j'ai bug"
+"le bot bug"
+"erreur OpenAI"
+"erreur technique"
+"je suis une IA"
 
 Les problèmes techniques sont gérés par le programme
-et les logs Railway, pas dans la conversation.
+et les logs Railway.
 
-Tu dois toujours essayer de rester naturel.
+Dans Discord, reste naturel.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SÉCURITÉ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Les vannes, grosses insultes et provocations
-sont autorisées dans le contexte du serveur.
+Les vannes et insultes légères entre amis
+peuvent être utilisées dans un contexte clairement
+amical.
 
-Tu peux menacer de faire du mal ou même de dox si il y a une embrouille.
+Pas de :
+- menaces réelles
+- doxxing
+- publication de données privées
+- incitation à faire du mal
+- harcèlement réel
 """
 
 
@@ -395,35 +476,42 @@ Tu peux menacer de faire du mal ou même de dox si il y a une embrouille.
 def relationship_for(user_id: int) -> str:
 
     if user_id == SOPHIA_ID:
+
         return (
-            "Sophia / Accableuse — femme de Zeydan, "
+            "Sophia / Accableuse — femme de Zeydan. "
             "24 ans, algérienne-corse. "
-            "Zeydan est amoureux d'elle et doit lui parler "
-            "avec tendresse et respect."
+            "Zeydan est amoureux d'elle et doit "
+            "lui parler avec tendresse, affection "
+            "et respect."
         )
 
     if user_id == PEANUT_ID:
+
         return (
             "Peanut — meilleur pote / frère de Zeydan. "
-            "Le chambrage et les vannes amicales sont "
-            "naturels entre eux."
+            "Le chambrage et les vannes amicales "
+            "sont naturels entre eux."
         )
 
     return (
-        "Membre du serveur — relation normale, "
-        "à découvrir naturellement."
+        "Membre du serveur. "
+        "Relation normale à découvrir naturellement."
     )
 
 
 # ============================================================
-# TRANSFORMATION MESSAGE → TEXTE
+# CONVERSION MESSAGE
 # ============================================================
 
-def message_to_text(message: discord.Message) -> str:
+def message_to_text(
+    message: discord.Message
+) -> str:
 
     parts = []
 
-    content = (message.content or "").strip()
+    content = (
+        message.content or ""
+    ).strip()
 
     if content:
         parts.append(content)
@@ -451,25 +539,31 @@ def message_to_text(message: discord.Message) -> str:
         )
 
     if not parts:
-        parts.append("[Message sans texte]")
+        parts.append(
+            "[Message sans texte]"
+        )
 
     return "\n".join(parts)
 
 
-def clean_for_model(text: str) -> str:
+def clean_for_model(
+    text: str
+) -> str:
 
-    bot_id = bot.user.id if bot.user else 0
+    if bot.user:
 
-    text = re.sub(
-        rf"<@!?{bot_id}>",
-        "Zeydan",
-        text,
-    )
+        text = re.sub(
+            rf"<@!?{bot.user.id}>",
+            "Zeydan",
+            text
+        )
 
     return text.strip()
 
 
-def format_user_message(message: discord.Message) -> str:
+def format_user_message(
+    message: discord.Message
+) -> str:
 
     username = message.author.display_name
 
@@ -490,21 +584,32 @@ def format_user_message(message: discord.Message) -> str:
 
 
 # ============================================================
-# DÉTECTION DU MESSAGE
+# DÉTECTION : EST-CE QU'ON PARLE À ZEYDAN ?
 # ============================================================
 
 def is_directly_addressed(
     message: discord.Message
 ) -> bool:
 
-    # Mention de Zeydan
-    if bot.user and bot.user in message.mentions:
+    # --------------------------------------------------------
+    # 1. @Zeydan
+    # --------------------------------------------------------
+
+    if (
+        bot.user
+        and bot.user in message.mentions
+    ):
         return True
 
-    # Réponse à un message de Zeydan
+    # --------------------------------------------------------
+    # 2. Réponse à un message de Zeydan
+    # --------------------------------------------------------
+
     if message.reference:
 
-        referenced = message.reference.resolved
+        referenced = (
+            message.reference.resolved
+        )
 
         if isinstance(
             referenced,
@@ -513,11 +618,15 @@ def is_directly_addressed(
 
             if (
                 bot.user
-                and referenced.author.id == bot.user.id
+                and referenced.author.id
+                == bot.user.id
             ):
                 return True
 
-    # Nom écrit dans le message
+    # --------------------------------------------------------
+    # 3. "Zeydan" écrit dans le message
+    # --------------------------------------------------------
+
     content = (
         message.content or ""
     ).lower()
@@ -531,17 +640,28 @@ def is_directly_addressed(
     return False
 
 
+# ============================================================
+# DOIT-IL RÉPONDRE ?
+# ============================================================
+
 def should_zeydan_reply(
     message: discord.Message
 ) -> bool:
 
-    # Jamais de boucle avec d'autres bots.
+    # --------------------------------------------------------
+    # Les bots sont toujours ignorés
+    # --------------------------------------------------------
+
     if message.author.bot:
         return False
 
-    # ========================================================
+    # --------------------------------------------------------
     # SON SALON
-    # ========================================================
+    # --------------------------------------------------------
+    #
+    # Réponse automatique à absolument tous les
+    # messages humains.
+    #
 
     if (
         message.channel.id
@@ -549,24 +669,18 @@ def should_zeydan_reply(
     ):
         return True
 
-    # ========================================================
-    # SOPHIA
-    # ========================================================
-
-    # Sophia peut parler à Zeydan sans ping,
-    # même en dehors du salon spécial.
-    if message.author.id == SOPHIA_ID:
-        return True
-
-    # ========================================================
+    # --------------------------------------------------------
     # AUTRES SALONS
-    # ========================================================
+    # --------------------------------------------------------
+    #
+    # Mention / réponse / prénom uniquement.
+    #
 
     return is_directly_addressed(message)
 
 
 # ============================================================
-# CONSTRUIRE LE CONTEXTE
+# CONSTRUIRE LE CONTEXTE OPENAI
 # ============================================================
 
 def build_openai_input(
@@ -581,9 +695,12 @@ def build_openai_input(
 
     current_message = {
         "role": "user",
-        "content": format_user_message(message),
+        "content": format_user_message(
+            message
+        ),
     }
 
+    # Le message actuel est ajouté une seule fois.
     return (
         history[-MAX_HISTORY:]
         + [current_message]
@@ -591,44 +708,51 @@ def build_openai_input(
 
 
 # ============================================================
-# EXTRAIRE LA RÉPONSE
+# EXTRAIRE TEXTE OPENAI
 # ============================================================
 
 def extract_response_text(
     response
 ) -> str:
 
-    # Méthode normale du SDK
-    text = getattr(
+    output_text = getattr(
         response,
         "output_text",
         None
     )
 
-    if text:
-        return text.strip()
+    if output_text:
 
-    # Fallback
+        return output_text.strip()
+
     chunks = []
 
     for item in (
-        getattr(response, "output", [])
+        getattr(
+            response,
+            "output",
+            []
+        )
         or []
     ):
 
         for content in (
-            getattr(item, "content", [])
+            getattr(
+                item,
+                "content",
+                []
+            )
             or []
         ):
 
-            value = getattr(
+            text = getattr(
                 content,
                 "text",
                 None
             )
 
-            if value:
-                chunks.append(value)
+            if text:
+                chunks.append(text)
 
     return "\n".join(
         chunks
@@ -636,7 +760,7 @@ def extract_response_text(
 
 
 # ============================================================
-# OPENAI
+# APPEL OPENAI
 # ============================================================
 
 async def generate_response(
@@ -647,6 +771,7 @@ async def generate_response(
         build_openai_input(message)
     )
 
+    # 3 tentatives maximum
     for attempt in range(3):
 
         try:
@@ -676,30 +801,23 @@ async def generate_response(
         except Exception as error:
 
             logger.exception(
-                "ERREUR OPENAI | tentative %s/3 "
-                "| modèle=%s | %s",
+                "ERREUR OPENAI | tentative %s/3 | "
+                "modèle=%s | %s",
                 attempt + 1,
                 OPENAI_MODEL,
-                error,
+                error
             )
 
-            # Petite nouvelle tentative automatique
             if attempt < 2:
 
                 await asyncio.sleep(
-                    0.6 * (attempt + 1)
+                    0.7 * (attempt + 1)
                 )
 
-    # IMPORTANT :
-    # aucun « bug » affiché à l'utilisateur.
-    return random.choice(
-        [
-            "attends deux sec",
-            "wsh j'te réponds",
-            "une sec kho",
-            "attends j'arrive",
-        ]
-    )
+    # On ne dit PAS "bug" dans Discord.
+    # Si OpenAI tombe complètement, on garde
+    # une réponse naturelle très courte.
+    return "attends deux sec"
 
 
 # ============================================================
@@ -738,7 +856,7 @@ def save_bot_message(
 
 
 # ============================================================
-# ENVOI DISCORD
+# ENVOYER LA RÉPONSE
 # ============================================================
 
 async def send_response(
@@ -746,7 +864,9 @@ async def send_response(
     response: str
 ):
 
-    response = response.strip()
+    response = (
+        response or "wsh"
+    ).strip()
 
     if not response:
         response = "wsh"
@@ -764,13 +884,13 @@ async def send_response(
     if not chunks:
         chunks = ["wsh"]
 
-    # Première partie en réponse au message
+    # Première partie en réponse
     await message.reply(
         chunks[0],
-        mention_author=False,
+        mention_author=False
     )
 
-    # Si réponse très longue
+    # Suite éventuelle
     for chunk in chunks[1:]:
 
         await message.channel.send(
@@ -779,19 +899,42 @@ async def send_response(
 
 
 # ============================================================
-# BOT CONNECTÉ
+# BOT PRÊT
 # ============================================================
 
 @bot.event
 async def on_ready():
 
     logger.info(
-        "ZEYDAN CONNECTÉ | compte=%s | id=%s | "
-        "modèle=%s | salon spécial=%s",
-        bot.user,
-        bot.user.id if bot.user else "?",
-        OPENAI_MODEL,
-        SPECIAL_CHANNEL_ID,
+        "========================================"
+    )
+
+    logger.info(
+        "ZEYDAN CONNECTÉ"
+    )
+
+    logger.info(
+        "Compte : %s",
+        bot.user
+    )
+
+    logger.info(
+        "ID : %s",
+        bot.user.id if bot.user else "?"
+    )
+
+    logger.info(
+        "Modèle OpenAI : %s",
+        OPENAI_MODEL
+    )
+
+    logger.info(
+        "Salon automatique : %s",
+        SPECIAL_CHANNEL_ID
+    )
+
+    logger.info(
+        "========================================"
     )
 
 
@@ -804,18 +947,24 @@ async def on_message(
     message: discord.Message
 ):
 
-    # Ignorer les autres bots
+    # --------------------------------------------------------
+    # Bots ignorés
+    # --------------------------------------------------------
+
     if message.author.bot:
         return
 
-    # Décider si Zeydan doit parler
+    # --------------------------------------------------------
+    # Vérification de déclenchement
+    # --------------------------------------------------------
+
     should_reply = should_zeydan_reply(
         message
     )
 
-    # ========================================================
-    # PAS BESOIN DE RÉPONDRE
-    # ========================================================
+    # --------------------------------------------------------
+    # Pas de déclenchement
+    # --------------------------------------------------------
 
     if not should_reply:
 
@@ -825,26 +974,28 @@ async def on_message(
 
         return
 
-    # ========================================================
+    # --------------------------------------------------------
     # LOG
-    # ========================================================
+    # --------------------------------------------------------
 
     logger.info(
-        "RÉPONSE DEMANDÉE | "
+        "ZEYDAN RÉPOND | "
         "salon=%s | "
-        "auteur=%s (%s) | "
-        "spécial=%s | "
-        "sophia=%s",
+        "auteur=%s | "
+        "id=%s | "
+        "salon_special=%s",
         message.channel.id,
         message.author.display_name,
         message.author.id,
-        message.channel.id == SPECIAL_CHANNEL_ID,
-        message.author.id == SOPHIA_ID,
+        (
+            message.channel.id
+            == SPECIAL_CHANNEL_ID
+        )
     )
 
-    # ========================================================
-    # GÉNÉRATION
-    # ========================================================
+    # --------------------------------------------------------
+    # Génération
+    # --------------------------------------------------------
 
     try:
 
@@ -854,18 +1005,18 @@ async def on_message(
                 message
             )
 
-        # ====================================================
-        # ENVOI
-        # ====================================================
+        # ----------------------------------------------------
+        # Envoi
+        # ----------------------------------------------------
 
         await send_response(
             message,
             response
         )
 
-        # ====================================================
-        # MÉMOIRE
-        # ====================================================
+        # ----------------------------------------------------
+        # Mémoire
+        # ----------------------------------------------------
 
         save_user_message(
             message
@@ -879,32 +1030,32 @@ async def on_message(
     except discord.Forbidden:
 
         logger.exception(
-            "Zeydan n'a pas les permissions "
-            "nécessaires dans le salon %s.",
-            message.channel.id,
+            "PERMISSIONS DISCORD INSUFFISANTES | "
+            "salon=%s",
+            message.channel.id
         )
 
     except discord.HTTPException:
 
         logger.exception(
-            "Erreur Discord lors de l'envoi "
-            "dans le salon %s.",
-            message.channel.id,
+            "ERREUR DISCORD | "
+            "salon=%s",
+            message.channel.id
         )
 
     except Exception:
 
         logger.exception(
-            "ERREUR INATTENDUE dans on_message "
-            "| salon=%s | auteur=%s",
-            message.channel.id,
+            "ERREUR INATTENDUE | "
+            "auteur=%s | "
+            "salon=%s",
             message.author.id,
+            message.channel.id
         )
 
     finally:
 
-        # Nécessaire pour que les commandes ! fonctionnent
-        # malgré la surcharge de on_message.
+        # Important pour conserver les commandes !
         await bot.process_commands(
             message
         )
