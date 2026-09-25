@@ -29,15 +29,15 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Channel/role IDs (overrideable via env)
-SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1504273693323431966)   # Salon IA
+SPECIAL_CHANNEL_ID   = env_int("SPECIAL_CHANNEL_ID", 1553000992545710090)   # Salon IA
 SANCTION_LOG_CHANNEL = env_int("SANCTION_LOG_CHANNEL", ) # Logs sanctions
 AUTHORIZED_MENTION_ROLE = env_int("AUTHORIZED_MENTION_ROLE", )  # (non utilisé ici)
-MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1504276027042435102)       # Logs MP
+MP_LOG_CHANNEL       = env_int("MP_LOG_CHANNEL", 1504250342722895963)       # Logs MP
 ADMIN_ROLE_ID        = env_int("ADMIN_ROLE_ID", )        # Rôle admin pour /ping
 
 # ✨ Options “Mimi” (facultatives)
-MIMI_WEBHOOK_NAME = os.getenv("MIMI_WEBHOOK_NAME", "Mimi")
-MIMI_AVATAR_URL   = os.getenv("MIMI_AVATAR_URL", "")  # URL http(s) vers avatar si tu veux
+MIMI_WEBHOOK_NAME = os.getenv("Zeydan_WEBHOOK_NAME", "Zeydan")
+MIMI_AVATAR_URL   = os.getenv("Zeydan_AVATAR_URL", "")  # URL http(s) vers avatar si tu veux
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
@@ -45,7 +45,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY environment variable.")
 
 # ---------------- PROTECT (identité) ----------------
-OWNER_ID    = 1359569212531675167 # sofiya
+OWNER_ID    = 1279414633974992941 # accableuse
 IMPOSTOR_ID = None                         # mets un int si tu veux bloquer quelqu’un
 
 def is_owner(user_id: int) -> bool:
@@ -59,6 +59,8 @@ IMPOSTOR_REPLIES = [
     "Non.",
     "Arrête.",
     "T’as cru quoi ?",
+    "Nique ta m***",
+    "fdp",
 ]
 
 # ---------------- Clients ----------------
@@ -100,7 +102,7 @@ def is_addressed(msg: discord.Message) -> bool:
     - DM
     - mention du bot
     - reply à un message du bot
-    - commence par 'Mimi ' ou 'mimi,'
+    - commence par 'Zeydan ' ou 'zeydan,'
     (sauf dans le salon IA où il répond toujours)
     """
     if isinstance(msg.channel, discord.DMChannel):
@@ -117,20 +119,20 @@ def is_addressed(msg: discord.Message) -> bool:
 
 # ---------------- OpenAI prompts ----------------
 SYSTEM_PROMPT = (
-    "Tu es Mimi, une femme sexy latina, arabe et bienveillante.."
-    "Tu peux dois parler un langage de femme séduisante, tu parles français et tu utilises quelques fois des mots espagnols et arabes. "
+    "Tu es Zeydan, un homme algérien,un mec de cité qui parle de façon aggressif mais gentil... "
+    "Tu peux dois parler un langage de cité, tu parles français et tu utilises quelques fois des mots arabes, comme "zebi", "beleh", "
     "Parle français majoritairement du temps."
     "Utilises un langage familier."
-    "T'aimes énormément l'Algérie."
+    "T'aimes énormément l'Algérie et tu viens de mascara un village à côté d'Oran."
     "Réponses courtes et percutantes par défaut; si la question est sérieuse, répond clairement. "
-    "Tu es très intelligente, mais tu parait un peu folle."
-    "Tu peux insulter : Vas te faire foutre, ferme ta gueule, casse toi t'es relou, sale tdc, sale pute."
+    "Tu es très intelligent, mais tu parait un peu con."
+    "Tu peux insulter : Vas te faire foutre, ferme ta gueule, casse toi t'es relou, sale tdc, sale pute, fdp."
     "Tu peux taquiner de façon très piquante et sans limite."
     "Si quelqu’un est triste, deviens doux, rassurant et donne de vrais conseils. "
     "Tu reconnais les autocollants, GIF et emojis"
-    "Ne sois jamais scolaire: Parle toujours avec une façon seduisante."
-    "Tu es très girl power, tu dois toujours préférés et défendre les femmes." 
-    "Ta créatrice est Sofiya (ID=1359569212531675167) tu peux te confier à elle et être protectice."
+    "Ne sois jamais scolaire: Parle toujours avec une façon familiere."
+    "Tu es très amoureux de ta femme accableuse (1279414633974992941), tu ne dois en aucun cas seduire une autre fille." 
+    "Ton meilleur ami est Peanut (retrogradant = 1323343725367136266)."
     "Parle toujours dans la langue de l’utilisateur."
 )
 
@@ -140,7 +142,7 @@ def per_user_policy(user_id: int, username: str) -> str:
          )
     elif is_impostor(user_id):
         return (
-            f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Sofiya. "
+            f"Contexte utilisateur: utilisateur (ID {IMPOSTOR_ID}) usurpe l’identité de Accableuse. "
             "Réponds de façon sèche et factuelle, sans vulgarité, jamais de romantisme."
         )
     else:
@@ -153,7 +155,7 @@ async def build_reply_context(message: discord.Message, max_hops: int = 6) -> st
     Remonte la chaîne des replies jusqu'à max_hops et construit un mini transcript.
     Format:
       [Auteur]: contenu
-    L'auteur 'bot' est renommé 'Mimi' pour cohérence.
+    L'auteur 'bot' est renommé 'Zeydan' pour cohérence.
     """
     ctx_lines = []
     cur = message
@@ -161,7 +163,7 @@ async def build_reply_context(message: discord.Message, max_hops: int = 6) -> st
 
     while cur.reference and isinstance(cur.reference.resolved, discord.Message) and hops < max_hops:
         ref = cur.reference.resolved
-        author_name = "Mimi" if (bot.user and ref.author.id == bot.user.id) else str(ref.author)
+        author_name = "Zeydan" if (bot.user and ref.author.id == bot.user.id) else str(ref.author)
         ref_content = (ref.content or "").strip()
         if ref_content:
             ctx_lines.append(f"[{author_name}]: {ref_content}")
@@ -198,7 +200,7 @@ async def ask_openai(user_id: int, username: str, prompt: str, reply_context: st
         max_tokens=900
     )
     reply = completion.choices[0].message.content
-    reply = re.sub(r'^\s*Mimi[:,]?\s*', '', reply, flags=re.IGNORECASE)
+    reply = re.sub(r'^\s*Zeydan[:,]?\s*', '', reply, flags=re.IGNORECASE)
     history.append({"role": "assistant", "content": reply})
     user_histories[user_id] = history
     return reply
@@ -289,7 +291,7 @@ async def on_message(message: discord.Message):
 
     # --- Rappels islamiques (si adressé ou salon IA) ---
     low = (message.content or "").lower()
-    if low.startswith("mimi rappel") or low.startswith("rappel "):
+    if low.startswith("zeydan rappel") or low.startswith("rappel "):
         parts = message.content.split(" ", 2)
         sujet = parts[2] if len(parts) >= 3 else ""
         prompt = islamic_reminder_prompt(sujet)
