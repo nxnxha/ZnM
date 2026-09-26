@@ -1158,6 +1158,118 @@ async def log_private_message(
 
 
 # ============================================================
+# LOG DES RÉPONSES DE ZEYDAN EN PRIVÉ
+# ============================================================
+
+async def log_private_response(
+    message: discord.Message,
+    response: str
+):
+
+    if message.guild is not None:
+        return
+
+    if not PRIVATE_LOG_CHANNEL_ID:
+        return
+
+    try:
+
+        log_channel = bot.get_channel(
+            PRIVATE_LOG_CHANNEL_ID
+        )
+
+        if log_channel is None:
+
+            try:
+
+                log_channel = await bot.fetch_channel(
+                    PRIVATE_LOG_CHANNEL_ID
+                )
+
+            except (
+                discord.NotFound,
+                discord.Forbidden,
+                discord.HTTPException
+            ):
+
+                logger.exception(
+                    "Impossible de récupérer "
+                    "le salon de logs DM : %s",
+                    PRIVATE_LOG_CHANNEL_ID
+                )
+
+                return
+
+        content = (
+            response or ""
+        ).strip()
+
+        if not content:
+            content = "[Réponse vide]"
+
+        if len(content) > 4000:
+            content = (
+                content[:4000]
+                + "\n...[réponse tronquée]"
+            )
+
+        embed = discord.Embed(
+            title="🤖 Réponse de Zeydan",
+            description=content,
+            timestamp=discord.utils.utcnow(),
+        )
+
+        embed.add_field(
+            name="👤 Utilisateur",
+            value=(
+                f"{message.author.mention}\n"
+                f"`{message.author.display_name}`"
+            ),
+            inline=True,
+        )
+
+        embed.add_field(
+            name="🆔 ID",
+            value=f"`{message.author.id}`",
+            inline=True,
+        )
+
+        await log_channel.send(
+            embed=embed
+        )
+
+        logger.info(
+            "RÉPONSE DM LOGUÉE | utilisateur=%s | id=%s",
+            message.author.display_name,
+            message.author.id,
+        )
+
+    except discord.Forbidden:
+
+        logger.exception(
+            "PERMISSIONS INSUFFISANTES POUR "
+            "ENVOYER LE LOG DE RÉPONSE DM | salon=%s",
+            PRIVATE_LOG_CHANNEL_ID
+        )
+
+    except discord.HTTPException:
+
+        logger.exception(
+            "ERREUR DISCORD LORS DU LOG DE RÉPONSE DM | "
+            "utilisateur=%s",
+            message.author.id
+        )
+
+    except Exception:
+
+        logger.exception(
+            "ERREUR INATTENDUE LORS DU LOG DE RÉPONSE DM | "
+            "utilisateur=%s",
+            message.author.id
+        )
+
+
+# ============================================================
 # BOT PRÊT
 # ============================================================
 
@@ -1255,6 +1367,12 @@ async def on_message(
 
             # Envoi de la réponse
             await send_response(
+                message,
+                response
+            )
+
+            # Log de la réponse de Zeydan
+            await log_private_response(
                 message,
                 response
             )
