@@ -1229,14 +1229,69 @@ async def on_message(
         return
 
     # --------------------------------------------------------
-    # LOG DES MESSAGES PRIVÉS
+    # MESSAGES PRIVÉS
     # --------------------------------------------------------
 
     if message.guild is None:
 
+        # Log du DM
         await log_private_message(
             message
         )
+
+        # Réponse automatique en DM
+        try:
+
+            async with message.channel.typing():
+
+                response = await generate_response(
+                    message
+                )
+
+            # Si OpenAI a échoué :
+            # aucun faux message.
+            if not response:
+                return
+
+            # Envoi de la réponse
+            await send_response(
+                message,
+                response
+            )
+
+            # Sauvegarde de la conversation
+            save_user_message(
+                message
+            )
+
+            save_bot_message(
+                message,
+                response
+            )
+
+        except discord.Forbidden:
+
+            logger.exception(
+                "PERMISSIONS DISCORD INSUFFISANTES "
+                "EN DM | utilisateur=%s",
+                message.author.id
+            )
+
+        except discord.HTTPException:
+
+            logger.exception(
+                "ERREUR DISCORD EN DM | "
+                "utilisateur=%s",
+                message.author.id
+            )
+
+        except Exception:
+
+            logger.exception(
+                "ERREUR INATTENDUE EN DM | "
+                "utilisateur=%s",
+                message.author.id
+            )
 
         return
 
