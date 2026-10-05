@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y \
     libopus-dev \
     libffi-dev \
     build-essential \
+    pkg-config \
+    && ldconfig \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
