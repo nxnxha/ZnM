@@ -7,23 +7,17 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     build-essential \
     pkg-config \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && ldconfig
+    && ldconfig \
+    && find /usr -name "libopus.so*" -print \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Vérification et configuration de libopus
-RUN echo "===== LIBOPUS =====" \
-    && find /usr /lib -type f -name "libopus.so*" 2>/dev/null || true \
-    && ldconfig -p | grep opus || true \
-    && echo "===== FIN LIBOPUS ====="
-
-CMD ["python", "-u", "MiriZeydan.py"]
+CMD ["python", "MiriZeydan.py"]
