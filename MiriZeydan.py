@@ -9,6 +9,7 @@ import logging
 import tempfile
 import threading
 import uuid
+import time
 
 from collections import defaultdict, deque
 
@@ -476,8 +477,6 @@ Tu lui parles BIEN.
 Tu ne lui parles PAS comme à Peanut.
 
 Tu ne la traites jamais comme un frère.
-
-Tu ne la rabaisse jamais gratuitement.
 
 Tu peux la taquiner légèrement,
 mais toujours avec affection.
@@ -1317,7 +1316,13 @@ class ZeydanVoiceSink(
     L'audio est conservé temporairement en PCM.
     Quand Discord détecte que la personne a terminé
     de parler, le segment est envoyé à OpenAI.
+
+    Une détection locale du silence sert de secours
+    si l'événement voice_member_speaking_stop
+    n'est pas déclenché correctement.
     """
+
+    SILENCE_DELAY = 0.8
 
     def __init__(
         self,
@@ -1337,6 +1342,9 @@ class ZeydanVoiceSink(
         self.members = {}
 
         self.lock = threading.Lock()
+
+        # Timer de détection du silence par utilisateur.
+        self.silence_timers = {}
 
     def wants_opus(self) -> bool:
         return False
@@ -1375,6 +1383,84 @@ class ZeydanVoiceSink(
                 user.id
             ] = user
 
+            old_timer = self.silence_timers.get(
+                user.id
+            )
+
+            if old_timer is not None:
+                old_timer.cancel()
+
+            timer = threading.Timer(
+                self.SILENCE_DELAY,
+                self._silence_timeout,
+                args=(user.id,)
+            )
+
+            timer.daemon = True
+
+            self.silence_timers[
+                user.id
+            ] = timer
+
+            timer.start()
+
+    def _silence_timeout(
+        self,
+        user_id: int
+    ):
+
+        if not voice_enabled[self.guild_id]:
+            return
+
+        with self.lock:
+
+            raw_audio = bytes(
+                self.buffers.pop(
+                    user_id,
+                    bytearray()
+                )
+            )
+
+            member = self.members.pop(
+                user_id,
+                None
+            )
+
+            self.silence_timers.pop(
+                user_id,
+                None
+            )
+
+        if member is None:
+            return
+
+        if len(raw_audio) < 4800:
+            return
+
+        logger.info(
+            "VOCAL | FIN DE PAROLE | %s (%s)",
+            member.display_name,
+            member.id
+        )
+
+        try:
+
+            asyncio.run_coroutine_threadsafe(
+                process_voice_segment(
+                    self.guild_id,
+                    member,
+                    raw_audio
+                ),
+                self.loop
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Impossible de programmer "
+                "le traitement vocal."
+            )
+
     @voice_recv.AudioSink.listener(
         "voice_member_speaking_stop"
     )
@@ -1394,6 +1480,14 @@ class ZeydanVoiceSink(
 
         with self.lock:
 
+            timer = self.silence_timers.pop(
+                member.id,
+                None
+            )
+
+            if timer is not None:
+                timer.cancel()
+
             raw_audio = bytes(
                 self.buffers.pop(
                     member.id,
@@ -1409,6 +1503,12 @@ class ZeydanVoiceSink(
         # Trop peu de données = probablement bruit
         if len(raw_audio) < 4800:
             return
+
+        logger.info(
+            "VOCAL | FIN DE PAROLE | %s (%s)",
+            member.display_name,
+            member.id
+        )
 
         try:
 
@@ -1431,6 +1531,15 @@ class ZeydanVoiceSink(
     def cleanup(self):
 
         with self.lock:
+
+            for timer in self.silence_timers.values():
+
+                try:
+                    timer.cancel()
+                except Exception:
+                    pass
+
+            self.silence_timers.clear()
 
             self.buffers.clear()
             self.members.clear()
@@ -1636,9 +1745,7 @@ async def generate_tts(
             )
         )
 
-        return bytes(
-            speech
-        )
+        return speech.read()
 
     except Exception:
 
