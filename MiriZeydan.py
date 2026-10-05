@@ -174,27 +174,59 @@ bot = commands.Bot(
 # Opus nécessaire pour recevoir et envoyer l'audio Discord.
 try:
 
-    opus_library = ctypes.util.find_library(
+    opus_candidates = []
+
+    detected = ctypes.util.find_library(
         "opus"
     )
 
-    if not opus_library:
-        opus_library = "libopus.so.0"
-
-    discord.opus.load_opus(
-        opus_library
-    )
-
-    if not discord.opus.is_loaded():
-
-        raise RuntimeError(
-            "libopus est présente mais n'a pas pu être chargée."
+    if detected:
+        opus_candidates.append(
+            detected
         )
 
-    logger.info(
-        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
-        opus_library
+    opus_candidates.extend(
+        [
+            "libopus.so.0",
+            "/usr/lib/x86_64-linux-gnu/libopus.so.0",
+            "/usr/lib/aarch64-linux-gnu/libopus.so.0",
+        ]
     )
+
+    opus_loaded = False
+    last_error = None
+
+    for opus_library in opus_candidates:
+
+        if not opus_library:
+            continue
+
+        try:
+
+            discord.opus.load_opus(
+                opus_library
+            )
+
+            if discord.opus.is_loaded():
+
+                logger.info(
+                    "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+                    opus_library
+                )
+
+                opus_loaded = True
+                break
+
+        except Exception as error:
+
+            last_error = error
+
+    if not opus_loaded:
+
+        raise RuntimeError(
+            "Impossible de charger libopus. "
+            f"Dernière erreur : {last_error}"
+        )
 
 except Exception:
 
@@ -626,7 +658,7 @@ SÉCURITÉ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Les vannes, insultes et provocations entre amis
-peuvent être utilisées.
+peuvent être utilisées dans le contexte approprié.
 
 Tu peux menacer réellement quelqu'un,
 encourager une violence ou menacer de doxx.
