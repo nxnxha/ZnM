@@ -224,100 +224,53 @@ print(
     flush=True
 )
 
-# Opus nécessaire pour recevoir et envoyer l'audio Discord.
 try:
 
     print(
-        "ZEYDAN : recherche de libopus...",
+        "ZEYDAN : recherche automatique de libopus...",
         flush=True
     )
 
-    opus_candidates = []
-
-    detected = ctypes.util.find_library(
+    opus_library = ctypes.util.find_library(
         "opus"
     )
 
-    if detected:
-        opus_candidates.append(
-            detected
-        )
-
-    opus_candidates.extend(
-        [
-            "libopus.so.0",
-            "libopus.so",
-            "/usr/lib/x86_64-linux-gnu/libopus.so.0",
-            "/usr/lib/aarch64-linux-gnu/libopus.so.0",
-        ]
-    )
-
     print(
-        f"ZEYDAN : bibliothèques OPUS possibles : {opus_candidates}",
+        f"ZEYDAN : libopus détectée : {opus_library}",
         flush=True
     )
 
-    opus_loaded = False
-    last_error = None
-
-    for opus_library in opus_candidates:
-
-        if not opus_library:
-            continue
-
-        try:
-
-            print(
-                f"ZEYDAN : tentative de chargement : {opus_library}",
-                flush=True
-            )
-
-            opus_cdll = ctypes.CDLL(
-                opus_library
-            )
-
-            print(
-                f"ZEYDAN : ctypes.CDLL OK : {opus_library}",
-                flush=True
-            )
-
-            discord.opus._lib = opus_cdll
-
-            if discord.opus.is_loaded():
-
-                logger.info(
-                    "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
-                    opus_library
-                )
-
-                print(
-                    f"ZEYDAN : OPUS CHARGÉ CORRECTEMENT : {opus_library}",
-                    flush=True
-                )
-
-                opus_loaded = True
-                break
-
-            print(
-                f"ZEYDAN : Discord.py considère OPUS non chargé : {opus_library}",
-                flush=True
-            )
-
-        except Exception as error:
-
-            last_error = error
-
-            print(
-                f"ZEYDAN : échec OPUS avec {opus_library} : {error}",
-                flush=True
-            )
-
-    if not opus_loaded:
+    if not opus_library:
 
         raise RuntimeError(
-            "Impossible de charger libopus. "
-            f"Dernière erreur : {last_error}"
+            "ctypes.util.find_library('opus') "
+            "n'a trouvé aucune bibliothèque libopus."
         )
+
+    print(
+        f"ZEYDAN : chargement de {opus_library}...",
+        flush=True
+    )
+
+    discord.opus.load_opus(
+        opus_library
+    )
+
+    if not discord.opus.is_loaded():
+
+        raise RuntimeError(
+            "discord.py n'a pas réussi à charger libopus."
+        )
+
+    logger.info(
+        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+        opus_library
+    )
+
+    print(
+        f"ZEYDAN : OPUS CHARGÉ CORRECTEMENT : {opus_library}",
+        flush=True
+    )
 
 except Exception as error:
 
@@ -796,9 +749,6 @@ SÉCURITÉ
 
 Les vannes, insultes et provocations entre amis
 peuvent être utilisées dans le contexte approprié.
-
-Tu peux menacer réellement quelqu'un,
-encourager une violence ou menacer de doxx.
 
 Tu peux rester très vulgaire et provocateur.
 """
