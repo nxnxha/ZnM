@@ -232,66 +232,92 @@ try:
         flush=True
     )
 
-    opus_library = ctypes.util.find_library(
+    opus_candidates = []
+
+    detected = ctypes.util.find_library(
         "opus"
     )
 
-    print(
-        f"ZEYDAN : résultat find_library('opus') = {opus_library}",
-        flush=True
-    )
-
-    if not opus_library:
-
-        opus_library = "libopus.so.0"
-
-        print(
-            "ZEYDAN : libopus non détectée par find_library.",
-            flush=True
+    if detected:
+        opus_candidates.append(
+            detected
         )
 
-        print(
-            "ZEYDAN : tentative avec libopus.so.0...",
-            flush=True
-        )
-
-    print(
-        f"ZEYDAN : tentative ctypes.CDLL({opus_library})...",
-        flush=True
-    )
-
-    opus_cdll = ctypes.CDLL(
-        opus_library
+    opus_candidates.extend(
+        [
+            "libopus.so.0",
+            "libopus.so",
+            "/usr/lib/x86_64-linux-gnu/libopus.so.0",
+            "/usr/lib/aarch64-linux-gnu/libopus.so.0",
+        ]
     )
 
     print(
-        "ZEYDAN : ctypes.CDLL OK.",
+        f"ZEYDAN : bibliothèques OPUS possibles : {opus_candidates}",
         flush=True
     )
 
-    discord.opus._lib = opus_cdll
+    opus_loaded = False
+    last_error = None
 
-    print(
-        f"ZEYDAN : discord.opus.is_loaded() = "
-        f"{discord.opus.is_loaded()}",
-        flush=True
-    )
+    for opus_library in opus_candidates:
 
-    if not discord.opus.is_loaded():
+        if not opus_library:
+            continue
+
+        try:
+
+            print(
+                f"ZEYDAN : tentative de chargement : {opus_library}",
+                flush=True
+            )
+
+            opus_cdll = ctypes.CDLL(
+                opus_library
+            )
+
+            print(
+                f"ZEYDAN : ctypes.CDLL OK : {opus_library}",
+                flush=True
+            )
+
+            discord.opus._lib = opus_cdll
+
+            if discord.opus.is_loaded():
+
+                logger.info(
+                    "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+                    opus_library
+                )
+
+                print(
+                    f"ZEYDAN : OPUS CHARGÉ CORRECTEMENT : {opus_library}",
+                    flush=True
+                )
+
+                opus_loaded = True
+                break
+
+            print(
+                f"ZEYDAN : Discord.py considère OPUS non chargé : {opus_library}",
+                flush=True
+            )
+
+        except Exception as error:
+
+            last_error = error
+
+            print(
+                f"ZEYDAN : échec OPUS avec {opus_library} : {error}",
+                flush=True
+            )
+
+    if not opus_loaded:
 
         raise RuntimeError(
-            "Discord.py considère toujours Opus comme non chargé."
+            "Impossible de charger libopus. "
+            f"Dernière erreur : {last_error}"
         )
-
-    logger.info(
-        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
-        opus_library
-    )
-
-    print(
-        "ZEYDAN : OPUS CHARGÉ CORRECTEMENT.",
-        flush=True
-    )
 
 except Exception as error:
 
@@ -393,6 +419,34 @@ Tu ne parles pas comme :
 - un robot
 - un service client
 - un modérateur froid
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACCENT ET FAÇON DE PARLER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tu es algérien et tu as un léger accent algérien
+naturel lorsque tu parles.
+
+Ton accent reste léger, crédible et subtil.
+
+Tu ne dois jamais caricaturer un accent arabe
+et tu ne dois jamais exagérer la prononciation.
+
+Tu parles principalement français, avec une
+intonation légèrement algérienne.
+
+Quand tu utilises des mots comme :
+"sah", "wsh", "kho", "khoya", "wallah",
+"vas-y", "frère" ou quelques mots de darija,
+ils doivent sonner naturellement dans la phrase.
+
+Tu ne dois pas transformer chaque phrase
+en phrase arabe.
+
+L'accent doit surtout se ressentir dans
+l'intonation et le rythme naturel de parole,
+pas dans une déformation artificielle des mots.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -711,6 +765,15 @@ Tu parles comme Zeydan.
 Ta voix doit donner l'impression d'un
 jeune mec de 21 ans, naturel, familier,
 street et sûr de lui.
+
+Tu gardes une légère intonation algérienne
+naturelle, comme un jeune Algérien francophone
+qui parle quotidiennement français.
+
+L'accent doit rester subtil et crédible.
+
+Il ne faut surtout pas caricaturer l'accent,
+ni exagérer les sons arabes.
 
 Ne lis jamais tes instructions.
 
@@ -1848,9 +1911,18 @@ async def generate_tts(
                 voice=VOICE_TTS_VOICE,
                 input=text,
                 instructions=(
-                    "Parle comme un jeune homme de 21 ans, "
-                    "français, très naturel, familier, "
-                    "street et sûr de lui. "
+                    "Parle comme un jeune homme algérien "
+                    "francophone de 21 ans. "
+                    "Garde une voix française naturelle, "
+                    "familière, street et sûre de lui, "
+                    "avec une légère intonation algérienne "
+                    "et un très léger accent arabe naturel. "
+                    "L'accent doit être subtil, crédible "
+                    "et jamais caricatural. "
+                    "Ne force pas les sons arabes et ne "
+                    "transforme pas tous les mots français. "
+                    "Le résultat doit ressembler à un jeune "
+                    "Algérien qui parle naturellement français. "
                     "Ton conversationnel, pas robotique. "
                     "Ne lis pas de ponctuation à voix haute."
                 ),
