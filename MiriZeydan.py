@@ -227,50 +227,78 @@ print(
 try:
 
     print(
-        "ZEYDAN : recherche automatique de libopus...",
+        "ZEYDAN : recherche directe de libopus...",
         flush=True
     )
 
-    opus_library = ctypes.util.find_library(
-        "opus"
-    )
+    # On ne dépend plus de ctypes.util.find_library("opus").
+    # Railway utilise ici une image Linux amd64.
+    opus_candidates = [
+        "/usr/lib/x86_64-linux-gnu/libopus.so.0",
+        "/usr/lib/x86_64-linux-gnu/libopus.so",
+        "/usr/lib/aarch64-linux-gnu/libopus.so.0",
+        "/usr/lib/aarch64-linux-gnu/libopus.so",
+        "/usr/lib/arm-linux-gnueabihf/libopus.so.0",
+        "/usr/lib/arm-linux-gnueabihf/libopus.so",
+        "libopus.so.0",
+        "libopus.so",
+    ]
 
-    print(
-        f"ZEYDAN : libopus détectée : {opus_library}",
-        flush=True
-    )
+    opus_loaded = False
+    last_error = None
 
-    if not opus_library:
+    for opus_library in opus_candidates:
+
+        try:
+
+            print(
+                f"ZEYDAN : tentative de chargement OPUS : "
+                f"{opus_library}",
+                flush=True
+            )
+
+            discord.opus.load_opus(
+                opus_library
+            )
+
+            if discord.opus.is_loaded():
+
+                logger.info(
+                    "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+                    opus_library
+                )
+
+                print(
+                    f"ZEYDAN : OPUS CHARGÉ CORRECTEMENT : "
+                    f"{opus_library}",
+                    flush=True
+                )
+
+                opus_loaded = True
+                break
+
+            print(
+                f"ZEYDAN : discord.py considère OPUS "
+                f"non chargé : {opus_library}",
+                flush=True
+            )
+
+        except Exception as error:
+
+            last_error = error
+
+            print(
+                f"ZEYDAN : échec OPUS avec "
+                f"{opus_library} : {error}",
+                flush=True
+            )
+
+    if not opus_loaded:
 
         raise RuntimeError(
-            "ctypes.util.find_library('opus') "
-            "n'a trouvé aucune bibliothèque libopus."
+            "Impossible de charger libopus. "
+            f"Dernière erreur : {last_error}"
         )
-
-    print(
-        f"ZEYDAN : chargement de {opus_library}...",
-        flush=True
-    )
-
-    discord.opus.load_opus(
-        opus_library
-    )
-
-    if not discord.opus.is_loaded():
-
-        raise RuntimeError(
-            "discord.py n'a pas réussi à charger libopus."
-        )
-
-    logger.info(
-        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
-        opus_library
-    )
-
-    print(
-        f"ZEYDAN : OPUS CHARGÉ CORRECTEMENT : {opus_library}",
-        flush=True
-    )
 
 except Exception as error:
 
