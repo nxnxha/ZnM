@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     pkg-config \
     && ldconfig \
-    && find /usr -name "libopus.so*" -print \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
