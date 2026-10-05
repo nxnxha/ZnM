@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     pkg-config \
     ca-certificates \
-    && ldconfig \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig
 
 WORKDIR /app
 
@@ -20,9 +20,10 @@ RUN python -m pip install --upgrade pip \
 
 COPY . .
 
-RUN echo "=== VERIFICATION LIBOPUS ===" \
+# Vérification et configuration de libopus
+RUN echo "===== LIBOPUS =====" \
+    && find /usr /lib -type f -name "libopus.so*" 2>/dev/null || true \
     && ldconfig -p | grep opus || true \
-    && find /usr -name "libopus.so*" 2>/dev/null || true \
-    && echo "=== FIN VERIFICATION LIBOPUS ==="
+    && echo "===== FIN LIBOPUS ====="
 
 CMD ["python", "-u", "MiriZeydan.py"]
