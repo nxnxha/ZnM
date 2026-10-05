@@ -10,6 +10,7 @@ import tempfile
 import threading
 import uuid
 import time
+import ctypes.util
 
 from collections import defaultdict, deque
 
@@ -44,9 +45,6 @@ GUILD_ID = int(
 # ============================================================
 # SALON SPÉCIAL
 # ============================================================
-
-# Dans ce salon :
-# Zeydan répond automatiquement à TOUS les messages humains.
 
 SPECIAL_CHANNEL_ID = int(
     os.getenv(
@@ -173,12 +171,40 @@ bot = commands.Bot(
     help_command=None,
 )
 
-# Opus nécessaire pour recevoir l'audio Discord.
+# Opus nécessaire pour recevoir et envoyer l'audio Discord.
 try:
-    discord.opus._load_default()
+
+    opus_library = ctypes.util.find_library(
+        "opus"
+    )
+
+    if not opus_library:
+        opus_library = "libopus.so.0"
+
+    discord.opus.load_opus(
+        opus_library
+    )
+
+    if not discord.opus.is_loaded():
+
+        raise RuntimeError(
+            "libopus est présente mais n'a pas pu être chargée."
+        )
+
+    logger.info(
+        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+        opus_library
+    )
+
 except Exception:
+
     logger.exception(
-        "Impossible de charger Opus."
+        "IMPOSSIBLE DE CHARGER OPUS"
+    )
+
+    raise RuntimeError(
+        "libopus n'a pas pu être chargé. "
+        "Vérifie l'installation de libopus dans le Dockerfile."
     )
 
 # ============================================================
@@ -201,14 +227,10 @@ voice_conversation_history = defaultdict(
 # ÉTAT VOCAL
 # ============================================================
 
-# True = Zeydan écoute et répond
-# False = Zeydan reste dans le vocal mais n'écoute plus
 voice_enabled = defaultdict(
     lambda: True
 )
 
-# Verrou pour éviter que plusieurs réponses vocales
-# se superposent en même temps.
 voice_response_locks = defaultdict(
     asyncio.Lock
 )
@@ -604,7 +626,7 @@ SÉCURITÉ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Les vannes, insultes et provocations entre amis
-peuvent être utilisées dans le contexte approprié.
+peuvent être utilisées.
 
 Tu peux menacer réellement quelqu'un,
 encourager une violence ou menacer de doxx.
@@ -1310,17 +1332,6 @@ async def log_private_response(
 class ZeydanVoiceSink(
     voice_recv.AudioSink
 ):
-    """
-    Reçoit l'audio Discord utilisateur par utilisateur.
-
-    L'audio est conservé temporairement en PCM.
-    Quand Discord détecte que la personne a terminé
-    de parler, le segment est envoyé à OpenAI.
-
-    Une détection locale du silence sert de secours
-    si l'événement voice_member_speaking_stop
-    n'est pas déclenché correctement.
-    """
 
     SILENCE_DELAY = 0.8
 
@@ -1343,7 +1354,6 @@ class ZeydanVoiceSink(
 
         self.lock = threading.Lock()
 
-        # Timer de détection du silence par utilisateur.
         self.silence_timers = {}
 
     def wants_opus(self) -> bool:
@@ -1500,7 +1510,6 @@ class ZeydanVoiceSink(
                 None
             )
 
-        # Trop peu de données = probablement bruit
         if len(raw_audio) < 4800:
             return
 
@@ -1560,7 +1569,6 @@ def pcm_to_wav(
         "wb"
     ) as wav_file:
 
-        # Discord utilise du PCM 16 bits.
         wav_file.setnchannels(2)
         wav_file.setsampwidth(2)
         wav_file.setframerate(48000)
@@ -1720,7 +1728,6 @@ async def generate_tts(
     if not text:
         return b""
 
-    # Limite de sécurité du TTS.
     if len(text) > 4000:
         text = text[:4000]
 
@@ -1806,7 +1813,6 @@ async def play_voice_response(
                 audio_data
             )
 
-        # Si Zeydan parle déjà, on attend.
         while voice_client.is_playing():
 
             await asyncio.sleep(
@@ -1964,7 +1970,6 @@ async def join_voice_channel(
             == channel.id
         ):
 
-            # Déjà dedans.
             if (
                 isinstance(
                     existing,
@@ -2436,16 +2441,8 @@ async def on_message(
     message: discord.Message
 ):
 
-    # --------------------------------------------------------
-    # Ignorer les bots
-    # --------------------------------------------------------
-
     if message.author.bot:
         return
-
-    # --------------------------------------------------------
-    # MESSAGES PRIVÉS
-    # --------------------------------------------------------
 
     if message.guild is None:
 
@@ -2509,17 +2506,9 @@ async def on_message(
 
         return
 
-    # --------------------------------------------------------
-    # Vérifier le déclenchement
-    # --------------------------------------------------------
-
     should_reply = await should_zeydan_reply(
         message
     )
-
-    # --------------------------------------------------------
-    # Pas de réponse
-    # --------------------------------------------------------
 
     if not should_reply:
 
@@ -2528,10 +2517,6 @@ async def on_message(
         )
 
         return
-
-    # --------------------------------------------------------
-    # LOG
-    # --------------------------------------------------------
 
     logger.info(
         "ZEYDAN RÉPOND | "
@@ -2547,10 +2532,6 @@ async def on_message(
             == SPECIAL_CHANNEL_ID
         ),
     )
-
-    # --------------------------------------------------------
-    # GÉNÉRATION + ENVOI
-    # --------------------------------------------------------
 
     try:
 
