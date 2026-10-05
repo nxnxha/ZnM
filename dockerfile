@@ -9,14 +9,15 @@ RUN apt-get update \
         build-essential \
         pkg-config \
     && ldconfig \
+    && ldconfig -p | grep opus \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
