@@ -10,6 +10,7 @@ import tempfile
 import threading
 import uuid
 import time
+import ctypes
 import ctypes.util
 
 from collections import defaultdict, deque
@@ -171,72 +172,49 @@ bot = commands.Bot(
     help_command=None,
 )
 
+# ============================================================
+# OPUS
+# ============================================================
+
 # Opus nécessaire pour recevoir et envoyer l'audio Discord.
 try:
 
-    opus_candidates = []
-
-    detected = ctypes.util.find_library(
+    opus_library = ctypes.util.find_library(
         "opus"
     )
 
-    if detected:
-        opus_candidates.append(
-            detected
-        )
+    if not opus_library:
+        opus_library = "libopus.so.0"
 
-    opus_candidates.extend(
-        [
-            "libopus.so.0",
-            "/usr/lib/x86_64-linux-gnu/libopus.so.0",
-            "/usr/lib/aarch64-linux-gnu/libopus.so.0",
-        ]
+    opus_cdll = ctypes.CDLL(
+        opus_library
     )
 
-    opus_loaded = False
-    last_error = None
+    logger.info(
+        "OPUS TROUVÉ ET CHARGÉ | bibliothèque=%s",
+        opus_library
+    )
 
-    for opus_library in opus_candidates:
+    discord.opus._lib = opus_cdll
 
-        if not opus_library:
-            continue
-
-        try:
-
-            discord.opus.load_opus(
-                opus_library
-            )
-
-            if discord.opus.is_loaded():
-
-                logger.info(
-                    "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
-                    opus_library
-                )
-
-                opus_loaded = True
-                break
-
-        except Exception as error:
-
-            last_error = error
-
-    if not opus_loaded:
+    if not discord.opus.is_loaded():
 
         raise RuntimeError(
-            "Impossible de charger libopus. "
-            f"Dernière erreur : {last_error}"
+            "Discord.py considère toujours Opus comme non chargé."
         )
 
-except Exception:
+    logger.info(
+        "OPUS CHARGÉ CORRECTEMENT"
+    )
+
+except Exception as error:
 
     logger.exception(
         "IMPOSSIBLE DE CHARGER OPUS"
     )
 
     raise RuntimeError(
-        "libopus n'a pas pu être chargé. "
-        "Vérifie l'installation de libopus dans le Dockerfile."
+        f"libopus n'a pas pu être chargé : {error}"
     )
 
 # ============================================================
