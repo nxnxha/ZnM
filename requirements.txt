@@ -1,2 +1,4 @@
-discord.py==2.3.2
-openai>=1.30.0
+discord.py
+discord-ext-voice-recv
+PyNaCl
+openai
