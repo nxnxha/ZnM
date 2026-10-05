@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+print("ZEYDAN : démarrage du fichier Python...", flush=True)
+
 import os
 import re
 import io
@@ -19,10 +21,14 @@ import discord
 from discord.ext import commands, voice_recv
 from openai import AsyncOpenAI
 
+print("ZEYDAN : imports terminés.", flush=True)
+
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
+
+print("ZEYDAN : lecture de la configuration...", flush=True)
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -118,15 +124,32 @@ VOICE_TTS_VOICE = os.getenv(
 # VÉRIFICATION DES VARIABLES
 # ============================================================
 
+print("ZEYDAN : vérification des variables Railway...", flush=True)
+
 if not TOKEN:
+    print(
+        "ZEYDAN : ERREUR - DISCORD_TOKEN absent.",
+        flush=True
+    )
+
     raise RuntimeError(
         "DISCORD_TOKEN est absent des variables Railway."
     )
 
 if not OPENAI_API_KEY:
+    print(
+        "ZEYDAN : ERREUR - OPENAI_API_KEY absente.",
+        flush=True
+    )
+
     raise RuntimeError(
         "OPENAI_API_KEY est absente des variables Railway."
     )
+
+print(
+    "ZEYDAN : variables Railway OK.",
+    flush=True
+)
 
 # ============================================================
 # LOGGING
@@ -148,15 +171,30 @@ logger = logging.getLogger("zeydan")
 # OPENAI
 # ============================================================
 
+print(
+    "ZEYDAN : initialisation OpenAI...",
+    flush=True
+)
+
 openai_client = AsyncOpenAI(
     api_key=OPENAI_API_KEY,
     timeout=60.0,
     max_retries=2,
 )
 
+print(
+    "ZEYDAN : OpenAI initialisé.",
+    flush=True
+)
+
 # ============================================================
 # DISCORD
 # ============================================================
+
+print(
+    "ZEYDAN : initialisation Discord...",
+    flush=True
+)
 
 intents = discord.Intents.default()
 
@@ -172,30 +210,72 @@ bot = commands.Bot(
     help_command=None,
 )
 
+print(
+    "ZEYDAN : bot Discord initialisé.",
+    flush=True
+)
+
 # ============================================================
 # OPUS
 # ============================================================
 
+print(
+    "ZEYDAN : début du chargement OPUS...",
+    flush=True
+)
+
 # Opus nécessaire pour recevoir et envoyer l'audio Discord.
 try:
+
+    print(
+        "ZEYDAN : recherche de libopus...",
+        flush=True
+    )
 
     opus_library = ctypes.util.find_library(
         "opus"
     )
 
+    print(
+        f"ZEYDAN : résultat find_library('opus') = {opus_library}",
+        flush=True
+    )
+
     if not opus_library:
+
         opus_library = "libopus.so.0"
+
+        print(
+            "ZEYDAN : libopus non détectée par find_library.",
+            flush=True
+        )
+
+        print(
+            "ZEYDAN : tentative avec libopus.so.0...",
+            flush=True
+        )
+
+    print(
+        f"ZEYDAN : tentative ctypes.CDLL({opus_library})...",
+        flush=True
+    )
 
     opus_cdll = ctypes.CDLL(
         opus_library
     )
 
-    logger.info(
-        "OPUS TROUVÉ ET CHARGÉ | bibliothèque=%s",
-        opus_library
+    print(
+        "ZEYDAN : ctypes.CDLL OK.",
+        flush=True
     )
 
     discord.opus._lib = opus_cdll
+
+    print(
+        f"ZEYDAN : discord.opus.is_loaded() = "
+        f"{discord.opus.is_loaded()}",
+        flush=True
+    )
 
     if not discord.opus.is_loaded():
 
@@ -204,10 +284,26 @@ try:
         )
 
     logger.info(
-        "OPUS CHARGÉ CORRECTEMENT"
+        "OPUS CHARGÉ CORRECTEMENT | bibliothèque=%s",
+        opus_library
+    )
+
+    print(
+        "ZEYDAN : OPUS CHARGÉ CORRECTEMENT.",
+        flush=True
     )
 
 except Exception as error:
+
+    print(
+        "ZEYDAN : ERREUR LORS DU CHARGEMENT OPUS !",
+        flush=True
+    )
+
+    print(
+        f"ZEYDAN : erreur exacte : {error}",
+        flush=True
+    )
 
     logger.exception(
         "IMPOSSIBLE DE CHARGER OPUS"
@@ -215,7 +311,7 @@ except Exception as error:
 
     raise RuntimeError(
         f"libopus n'a pas pu être chargé : {error}"
-    )
+    ) from error
 
 # ============================================================
 # MÉMOIRE COURTE PAR SALON
@@ -2604,5 +2700,15 @@ async def on_message(
 # ============================================================
 # LANCEMENT
 # ============================================================
+
+print(
+    "ZEYDAN : toutes les fonctions sont chargées.",
+    flush=True
+)
+
+print(
+    "ZEYDAN : lancement de bot.run()...",
+    flush=True
+)
 
 bot.run(TOKEN)
